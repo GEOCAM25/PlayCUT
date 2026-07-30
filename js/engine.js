@@ -124,9 +124,12 @@ export class Engine {
     rec.img = img;
   }
 
+  _vol(clip) { return clip.muted ? 0 : (clip.volume ?? 1); }
+
   applyGains() {
-    for (const clip of this.project.tracks.video) setClipGain(clip.id, clip.volume ?? 1);
-    for (const clip of this.project.tracks.audio) setClipGain(clip.id, clip.volume ?? 1);
+    for (const clip of this.project.tracks.video) setClipGain(clip.id, this._vol(clip));
+    for (const clip of (this.project.tracks.overlay || [])) setClipGain(clip.id, this._vol(clip));
+    for (const clip of this.project.tracks.audio) setClipGain(clip.id, this._vol(clip));
   }
 
   // ==================== RENDER ====================
@@ -442,7 +445,7 @@ export class Engine {
       rec.el.playbackRate = clip.speed || 1;
       if (rec.el.paused) rec.el.play().catch(() => {});
       // Crossfade de audio durante transición.
-      let g = clip.volume ?? 1;
+      let g = this._vol(clip);
       if (vs && vs.b) g *= isB ? vs.p : (1 - vs.p);
       setClipGain(clip.id, g);
     };
@@ -458,7 +461,7 @@ export class Engine {
         const expected = clip.inPoint + (t - start);
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
         if (rec.el.paused) rec.el.play().catch(() => {});
-        setClipGain(clip.id, (clip.volume ?? 1) * this._audioEnv(clip, t, start, end));
+        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end));
       } else if (!rec.el.paused) rec.el.pause();
     }
 
@@ -474,7 +477,7 @@ export class Engine {
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
         rec.el.playbackRate = clip.speed || 1;
         if (rec.el.paused) rec.el.play().catch(() => {});
-        setClipGain(clip.id, (clip.volume ?? 1) * this._audioEnv(clip, t, start, end));
+        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end));
       } else if (!rec.el.paused) rec.el.pause();
     }
   }

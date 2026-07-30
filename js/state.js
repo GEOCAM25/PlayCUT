@@ -47,6 +47,7 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     srcDuration: duration,
     // audio
     volume: 1,
+    muted: false,
     fadeIn: 0,
     fadeOut: 0,
     // color
@@ -71,7 +72,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     start,
     inPoint: 0, outPoint: duration, imageDuration: 3,
     srcWidth: width, srcHeight: height, srcDuration: duration,
-    volume: 1, fadeIn: 0, fadeOut: 0,
+    volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
     speed: 1, motion: 'none',
     fillMode: 'contain',
@@ -89,7 +90,7 @@ export function createAudioClip({ mediaId, duration, start = 0, name = 'Audio' }
   return {
     id: uid(), mediaId, type: 'audio', name,
     inPoint: 0, outPoint: duration, srcDuration: duration,
-    start, volume: 1, fadeIn: 0, fadeOut: 0,
+    start, volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
   };
 }
 
@@ -121,6 +122,7 @@ export function normalizeProject(p) {
   p.tracks = p.tracks || { video: [], overlay: [], audio: [], text: [] };
   if (!p.tracks.overlay) p.tracks.overlay = [];
   for (const c of p.tracks.video) {
+    c.muted = c.muted ?? false;
     c.speed = c.speed || 1;
     c.motion = c.motion || 'none';
     c.fillMode = c.fillMode || 'contain';
@@ -134,10 +136,10 @@ export function normalizeProject(p) {
     c.scale = c.scale ?? 0.42; c.offsetX = c.offsetX ?? 0.26; c.offsetY = c.offsetY ?? -0.28;
     c.rotate = c.rotate ?? 0; c.opacity = c.opacity ?? 1; c.filter = c.filter || 'none';
     c.brightness = c.brightness ?? 1; c.contrast = c.contrast ?? 1; c.saturation = c.saturation ?? 1;
-    c.volume = c.volume ?? 1; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
+    c.volume = c.volume ?? 1; c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
   }
-  for (const c of p.tracks.audio) { c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
+  for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
   for (const c of p.tracks.text) {
     c.bold = c.bold ?? true; c.font = c.font || 'sans'; c.bg = c.bg || 'none';
     c.bgColor = c.bgColor || '#ff3b6b'; c.animIn = c.animIn || 'none';

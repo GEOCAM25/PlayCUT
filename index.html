@@ -38,8 +38,9 @@
     <div id="project-list" class="project-list"></div>
     <p id="empty-projects" class="empty-hint">Todavía no tienes proyectos. Crea el primero — todo se guarda solo en este dispositivo.</p>
 
+    <div id="storage-usage" class="storage-usage"></div>
     <footer class="privacy-note">
-      🔒 Todo tu contenido (videos, música, proyectos) se guarda <b>solo en este teléfono</b>.
+      🔒 Todo tu contenido (videos, música, proyectos) se guarda <b>solo en este dispositivo</b>.
       Nada se sube a internet.
     </footer>
   </section>
@@ -62,7 +63,10 @@
     <div class="preview-wrap">
       <canvas id="preview" width="1080" height="1920"></canvas>
       <div id="preview-empty" class="preview-empty">
-        <p>Añade videos o fotos para empezar</p>
+        <div class="empty-cta">
+          <span class="empty-plus">＋</span>
+          <p>Toca para añadir<br>tu primer video o foto</p>
+        </div>
       </div>
     </div>
 
@@ -103,6 +107,7 @@
     <!-- Panel contextual de clip seleccionado -->
     <div class="clip-tools" id="clip-tools" hidden>
       <button class="tool" data-action="clip-adjust"><i>🎛️</i><span>Editar</span></button>
+      <button class="tool" data-action="clip-audio"><i>🔊</i><span>Volumen</span></button>
       <button class="tool" data-action="clip-speed"><i>⏱️</i><span>Velocidad</span></button>
       <button class="tool" data-action="clip-transition"><i>⇋</i><span>Transición</span></button>
       <button class="tool" data-action="clip-anim"><i>✨</i><span>Animar</span></button>
@@ -180,6 +185,28 @@
         <label class="only-visual">Opacidad <output id="out-opacity">100%</output>
           <input id="adj-opacity" type="range" min="0" max="100" value="100" /></label>
       </div>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: AUDIO / VOLUMEN ===================== -->
+  <div id="sheet-audio-clip" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3 id="audio-title">Volumen y sonido</h3>
+      <div class="opt-grid two">
+        <button class="opt" id="btn-mute"><span class="opt-ico" id="mute-ico">🔊</span><span id="mute-label">Silenciar</span></button>
+        <button class="opt" id="btn-vol-all"><span class="opt-ico">📢</span>Aplicar a todos</button>
+      </div>
+      <div class="sliders">
+        <label>Volumen <output id="out-avol">100%</output>
+          <input id="a-vol" type="range" min="0" max="200" value="100" /></label>
+        <label>Aparecer poco a poco (fade in) <output id="out-afi">0.0s</output>
+          <input id="a-fi" type="range" min="0" max="5" step="0.1" value="0" /></label>
+        <label>Terminar poco a poco (fade out) <output id="out-afo">0.0s</output>
+          <input id="a-fo" type="range" min="0" max="5" step="0.1" value="0" /></label>
+      </div>
+      <p class="export-meta">Sube el volumen del video y baja el de la música (o al revés) ajustando cada clip por separado.</p>
       <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>
   </div>

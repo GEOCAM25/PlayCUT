@@ -36,7 +36,10 @@ cada usuario, de forma independiente y privada.
 - 🅣 **Texto avanzado**: 5 fuentes, color, fondo (pastilla), y **animaciones**
   de entrada/salida (fundido, pop, subir, bajar), posición y rotación.
 - 😀 **Stickers** (emojis) con tamaño, posición y rotación.
-- 🎵 **Audio** con volumen independiente, posición libre y **fade in / fade out**.
+- 🎵 **Audio y volumen completo**: volumen **independiente por clip** (sube el
+  del video y baja el de la música, o al revés), **silenciar** clip, **fade in /
+  fade out** ("aparecer/terminar poco a poco") y **"Aplicar a todos"** para
+  igualar el volumen de todos los clips de una vez.
 - 🔊 **Crossfade de audio** automático durante las transiciones.
 - 🎨 **Color de fondo** del lienzo configurable.
 - 🔍 **Zoom de la línea de tiempo** para editar con precisión.
@@ -50,6 +53,11 @@ cada usuario, de forma independiente y privada.
   memoria, pantalla) y ajusta automáticamente la resolución y los fps de la
   vista previa para ir **siempre fluido**; modos *Automático / Alta / Ahorro*.
 - ⌨️ **Atajos de teclado** en escritorio (Espacio, ← →, S, Supr, Ctrl+Z/Y, +/−).
+- 👆 **Gestos intuitivos**: toca la vista previa para reproducir, arrastra hacia
+  abajo una hoja para cerrarla, **imán (snapping)** al mover clips y **vibración
+  háptica** en acciones clave.
+- 🗂️ **Gestión de proyectos**: duplicar, borrar y ver el **uso de almacenamiento**
+  del dispositivo.
 
 **Exportar y guardar**
 - 📤 **Exportación hasta 4K** (720p / 1080p / 2K / 4K) a **24/30/60 fps**,

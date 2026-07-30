@@ -14,6 +14,7 @@ export class Timeline {
     this.onScrub = opts.onScrub;
     this.onTransition = opts.onTransition;
     this.isPlaying = opts.isPlaying;
+    this.getPlayhead = opts.getPlayhead;
     this.project = null;
     this.selectedId = null;
     this.selectedTrack = null;
@@ -77,6 +78,7 @@ export class Timeline {
       let tag = clip.type === 'image' ? '🖼️' : '🎬';
       if ((clip.speed || 1) !== 1) tag += ` ${(clip.speed).toFixed(clip.speed % 1 ? 1 : 0)}×`;
       if (clip.motion && clip.motion !== 'none') tag += ' ✦';
+      if (clip.muted) tag += ' 🔇';
       this._addLabel(el, tag);
       this._addTrimHandles(el, clip, 'video');
       track.appendChild(el);
@@ -102,7 +104,7 @@ export class Timeline {
       const el = this._buildClip(clip, 'overlay', clip.start, overlayDuration(clip));
       this._addThumb(el, clip.mediaId);
       el.classList.add('type-overlay');
-      this._addLabel(el, clip.type === 'image' ? '🖼️ PiP' : '🎬 PiP');
+      this._addLabel(el, (clip.type === 'image' ? '🖼️ PiP' : '🎬 PiP') + (clip.muted ? ' 🔇' : ''));
       this._addTrimHandles(el, clip, 'overlay');
       this._makeMovable(el, clip, 'overlay');
       track.appendChild(el);
@@ -117,7 +119,7 @@ export class Timeline {
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'audio', clip.start, clip.outPoint - clip.inPoint);
       el.classList.add('type-audio');
-      this._addLabel(el, '🎵 ' + (this._mediaName(clip.mediaId) || 'Audio'));
+      this._addLabel(el, (clip.muted ? '🔇 ' : '🎵 ') + (this._mediaName(clip.mediaId) || 'Audio'));
       this._addTrimHandles(el, clip, 'audio');
       this._makeMovable(el, clip, 'audio');
       track.appendChild(el);
@@ -229,6 +231,20 @@ export class Timeline {
     clips.forEach((clip, i) => { const el = els.find(e => e.dataset.id === clip.id); if (el) el.style.left = (videoClipStart(clips, i) * this.pps) + 'px'; });
   }
 
+  // Imán: ajusta un tiempo al borde de clip / playhead / inicio más cercano.
+  _snap(time, excludeId) {
+    const pts = [0];
+    videoLayout(this.project.tracks.video).forEach(l => { pts.push(l.start, l.end); });
+    for (const c of (this.project.tracks.overlay || [])) if (c.id !== excludeId) pts.push(c.start, c.start + overlayDuration(c));
+    for (const c of this.project.tracks.audio) if (c.id !== excludeId) pts.push(c.start, c.start + (c.outPoint - c.inPoint));
+    for (const c of this.project.tracks.text) if (c.id !== excludeId) pts.push(c.start, c.end);
+    if (this.getPlayhead) pts.push(this.getPlayhead());
+    const thr = 9 / this.pps;
+    let best = null, bd = thr;
+    for (const p of pts) { const d = Math.abs(time - p); if (d < bd) { bd = d; best = p; } }
+    return best != null ? best : time;
+  }
+
   // ---------------- Mover ----------------
   _makeMovable(el, clip, track) {
     let startX = 0, origStart = 0, moved = false;
@@ -242,8 +258,14 @@ export class Timeline {
     const move = (e) => {
       const dt = (e.clientX - startX) / this.pps;
       if (Math.abs(e.clientX - startX) > 4) moved = true;
-      const ns = Math.max(0, origStart + dt);
-      if (track === 'text') { const len = clip.end - clip.start; clip.start = ns; clip.end = ns + len; }
+      let ns = Math.max(0, origStart + dt);
+      const len = track === 'text' ? (clip.end - clip.start) : 0;
+      // Imán al mover: prueba a encajar el inicio o el fin del clip.
+      const snapStart = this._snap(ns, clip.id);
+      const dur = track === 'text' ? len : (track === 'audio' ? (clip.outPoint - clip.inPoint) : overlayDuration(clip));
+      const snapEnd = this._snap(ns + dur, clip.id) - dur;
+      if (Math.abs(snapStart - ns) <= Math.abs(snapEnd - ns)) ns = snapStart; else ns = Math.max(0, snapEnd);
+      if (track === 'text') { clip.start = ns; clip.end = ns + len; }
       else clip.start = ns;
       el.style.left = (ns * this.pps) + 'px';
     };

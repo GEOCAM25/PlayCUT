@@ -49,6 +49,8 @@ function toast(msg) {
   els.toast.textContent = msg; els.toast.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => els.toast.classList.remove('show'), 2200);
 }
+// Vibración háptica (donde el dispositivo lo permita).
+function haptic(pattern) { try { navigator.vibrate && navigator.vibrate(pattern); } catch {} }
 function showScreen(name) { for (const k in screens) screens[k].classList.toggle('active', k === name); }
 function setActive(container, attr, value) {
   $$(`${container} [data-${attr}]`).forEach(b => b.classList.toggle('active', b.dataset[attr] === String(value)));
@@ -131,16 +133,41 @@ async function renderProjects() {
     const meta = document.createElement('div');
     meta.className = 'project-meta';
     meta.innerHTML = `<h3>${escapeHtml(p.name)}</h3><span>${formatTime(projectDuration(p))} · ${p.ratio} · ${new Date(p.updatedAt).toLocaleDateString()}</span>`;
+    const actions = document.createElement('div');
+    actions.className = 'project-actions';
+    const dup = document.createElement('button');
+    dup.className = 'project-act'; dup.textContent = '⧉'; dup.title = 'Duplicar';
+    dup.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const copy = JSON.parse(JSON.stringify(p));
+      copy.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      copy.name = p.name + ' (copia)'; copy.createdAt = Date.now();
+      await db.saveProject(copy); renderProjects(); toast('Proyecto duplicado');
+    });
     const del = document.createElement('button');
-    del.className = 'project-del'; del.textContent = '×';
+    del.className = 'project-act'; del.textContent = '×'; del.title = 'Borrar';
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (confirm(`¿Borrar "${p.name}"? Esto no se puede deshacer.`)) { await db.deleteProject(p.id); renderProjects(); toast('Proyecto borrado'); }
     });
-    card.append(thumb, meta, del);
+    actions.append(dup, del);
+    card.append(thumb, meta, actions);
     card.addEventListener('click', () => openProject(p.id));
     els.projectList.appendChild(card);
   }
+  updateStorageUsage();
+}
+
+async function updateStorageUsage() {
+  const el = $('#storage-usage'); if (!el) return;
+  try {
+    const { usage, quota } = await db.estimateStorage();
+    if (quota) {
+      const mb = (usage / 1048576).toFixed(0);
+      const gb = (quota / 1073741824).toFixed(1);
+      el.textContent = `📦 ${mb} MB usados en este dispositivo (de ~${gb} GB disponibles)`;
+    } else el.textContent = '';
+  } catch { el.textContent = ''; }
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -184,6 +211,13 @@ async function openProject(id) {
   engine.seek(0); timeline.setPlayhead(0);
   resetHistory();
   showScreen('editor');
+  showTipsOnce();
+}
+
+function showTipsOnce() {
+  if (localStorage.getItem('playcut.tips')) return;
+  localStorage.setItem('playcut.tips', '1');
+  setTimeout(() => toast('Consejo: toca un clip para editarlo y arrastra sus bordes para recortar'), 1000);
 }
 
 function setPlayIcon(playing) { els.btnPlay.textContent = playing ? '❚❚' : '▶'; }
@@ -256,6 +290,10 @@ function bindToolbar() {
         else if (sel.track === 'audio') openAdjustSheet(sel.clip, 'audio');
         else openAdjustSheet(sel.clip, sel.track);
         break;
+      case 'clip-audio':
+        if (sel.clip.type === 'video' || sel.track === 'audio') openAudioSheet(sel.clip);
+        else toast('Este clip no tiene audio');
+        break;
       case 'clip-speed':
         if ((sel.track === 'video' || sel.track === 'overlay') && sel.clip.type === 'video') openSpeedSheet(sel.clip);
         else toast('La velocidad solo aplica a clips de video');
@@ -314,7 +352,7 @@ function splitAtPlayhead() {
     const full = original.imageDuration; original.imageDuration = at.localTime; copy.imageDuration = Math.max(0.2, full - at.localTime);
   }
   clips.splice(at.index + 1, 0, copy);
-  refresh(); timeline.select(copy.id, 'video'); toast('Clip dividido');
+  refresh(); timeline.select(copy.id, 'video'); haptic(15); toast('Clip dividido');
 }
 
 function moveClip(sel, dir) {
@@ -352,20 +390,47 @@ function deleteClip(sel) {
   const arr = project.tracks[sel.track];
   const i = arr.findIndex(c => c.id === sel.clip.id);
   if (i >= 0) arr.splice(i, 1);
-  timeline.clearSelection(); onClipSelected(null); refresh(); toast('Clip borrado');
+  timeline.clearSelection(); onClipSelected(null); refresh(); haptic(25); toast('Clip borrado');
 }
 
 function onClipSelected(clip) {
   const has = !!clip;
   els.toolbarMain.hidden = has;
   els.clipTools.hidden = !has;
+  if (has) haptic(8);
 }
 
 // ==================================================================
 //  HOJAS
 // ==================================================================
 function openSheet(id) { els.backdrop.classList.add('show'); $('#' + id).classList.add('show'); }
-function closeSheets() { els.backdrop.classList.remove('show'); $$('.sheet').forEach(s => s.classList.remove('show')); }
+function closeSheets() { els.backdrop.classList.remove('show'); $$('.sheet').forEach(s => { s.classList.remove('show'); s.style.transform = ''; }); }
+
+// Arrastrar hacia abajo el tirador de una hoja para cerrarla (móvil).
+function bindSheetGestures() {
+  $$('.sheet').forEach(sheet => {
+    const handle = sheet.querySelector('.sheet-handle'); if (!handle) return;
+    let startY = 0, dy = 0, dragging = false;
+    handle.addEventListener('pointerdown', (e) => {
+      if (window.innerWidth >= 720) return; // solo layout móvil
+      dragging = true; startY = e.clientY; dy = 0;
+      sheet.style.transition = 'none';
+      handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      dy = Math.max(0, e.clientY - startY);
+      sheet.style.transform = `translateY(${dy}px)`;
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false; sheet.style.transition = '';
+      if (dy > 110) { closeSheets(); pushHistory(); } else sheet.style.transform = '';
+    };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
+}
 
 // ---------- Editar (ajustes + transform + motion) ----------
 let adjustTarget = null;
@@ -456,6 +521,52 @@ function bindAdjust() {
     if (fillBtn) { adjustTarget.clip.fillMode = fillBtn.dataset.fill; setActive('#fill-row', 'fill', fillBtn.dataset.fill); }
     if (bgBtn) { adjustTarget.clip.bg = adjustTarget.clip.bg === bgBtn.dataset.bg ? 'black' : bgBtn.dataset.bg; $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', adjustTarget.clip.bg === b.dataset.bg)); }
     engine.render(engine.playhead); scheduleSave();
+  });
+}
+
+// ---------- Audio / Volumen ----------
+let audioTarget = null;
+function openAudioSheet(clip) {
+  pushHistory(); audioTarget = clip;
+  $('#a-vol').value = Math.round((clip.volume ?? 1) * 100);
+  $('#a-fi').value = clip.fadeIn ?? 0;
+  $('#a-fo').value = clip.fadeOut ?? 0;
+  updateAudioOutputs(); updateMuteBtn();
+  openSheet('sheet-audio-clip');
+}
+function updateAudioOutputs() {
+  $('#out-avol').textContent = $('#a-vol').value + '%';
+  $('#out-afi').textContent = (+$('#a-fi').value).toFixed(1) + 's';
+  $('#out-afo').textContent = (+$('#a-fo').value).toFixed(1) + 's';
+}
+function updateMuteBtn() {
+  const m = audioTarget && audioTarget.muted;
+  $('#mute-ico').textContent = m ? '🔇' : '🔊';
+  $('#mute-label').textContent = m ? 'Activar sonido' : 'Silenciar';
+  $('#btn-mute').classList.toggle('active', !!m);
+}
+function bindAudioClip() {
+  const apply = () => {
+    if (!audioTarget) return;
+    audioTarget.volume = (+$('#a-vol').value) / 100;
+    audioTarget.fadeIn = +$('#a-fi').value;
+    audioTarget.fadeOut = +$('#a-fo').value;
+    updateAudioOutputs();
+    engine.applyGains(); engine.render(engine.playhead); scheduleSave();
+  };
+  ['#a-vol', '#a-fi', '#a-fo'].forEach(s => $(s).addEventListener('input', apply));
+  $('#btn-mute').addEventListener('click', () => {
+    if (!audioTarget) return;
+    audioTarget.muted = !audioTarget.muted;
+    updateMuteBtn(); engine.applyGains(); engine.render(engine.playhead); timeline.render(); scheduleSave(); haptic(10);
+  });
+  $('#btn-vol-all').addEventListener('click', () => {
+    if (!audioTarget) return;
+    pushHistory();
+    const v = audioTarget.volume ?? 1;
+    for (const c of [...project.tracks.video, ...project.tracks.overlay, ...project.tracks.audio]) c.volume = v;
+    engine.applyGains(); engine.render(engine.playhead); timeline.render(); scheduleSave();
+    toast('Volumen aplicado a todos los clips');
   });
 }
 
@@ -708,8 +819,15 @@ function bindGlobal() {
     if (e.target.classList.contains('track') || e.target.classList.contains('timeline')) { timeline.clearSelection(); }
   });
 
+  // Tocar la vista previa: si está vacía, importar; si no, play/pausa.
+  $('.preview-wrap').addEventListener('click', () => {
+    if (project.tracks.video.length === 0 && project.tracks.overlay.length === 0) els.fileMedia.click();
+    else togglePlay();
+  });
+
   els.backdrop.addEventListener('click', () => { closeSheets(); pushHistory(); });
   $$('[data-close-sheet]').forEach(b => b.addEventListener('click', () => { closeSheets(); pushHistory(); }));
+  bindSheetGestures();
 
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; els.btnInstall.hidden = false; });
   els.btnInstall.addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; els.btnInstall.hidden = true; });
@@ -727,12 +845,13 @@ function initTimeline() {
     onChange: () => { engine.recalc(); engine.applyGains(); updateDurationUI(); scheduleSave(); pushHistory(); },
     onScrub: (t) => { engine.seek(t); updateTimeUI(t); },
     onTransition: (clip) => openTransitionForClip(clip),
+    getPlayhead: () => engine.playhead,
   });
 }
 
 async function main() {
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
-  bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings();
+  bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

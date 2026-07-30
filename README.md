@@ -90,6 +90,20 @@ python3 -m http.server 8080
 
 Luego abre `http://localhost:8080` en el navegador.
 
+### Publicar en GitHub Pages (incluido)
+
+El repo trae un workflow (`.github/workflows/deploy.yml`) que publica la app
+automáticamente. **Solo hace falta activar Pages una vez** (GitHub no permite
+que un workflow lo active solo, por seguridad):
+
+1. Ve a **Settings → Pages** del repositorio.
+2. En **Build and deployment → Source**, elige **GitHub Actions**.
+3. Vuelve a **Actions → Deploy PlayCUT a GitHub Pages → Run workflow**
+   (o haz cualquier push). El deploy terminará en verde.
+
+La app quedará publicada en: **https://geocam25.github.io/PlayCUT/**
+(rutas relativas, funciona bajo esa subruta y es instalable como PWA).
+
 ### En el teléfono (recomendado)
 
 1. Publica la carpeta en cualquier hosting estático con HTTPS

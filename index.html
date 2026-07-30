@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d0d12" />
+  <meta name="description" content="PlayCUT — Editor de video estilo CapCut, 100% en tu dispositivo. Sin nube, sin cuentas." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PlayCUT" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <title>PlayCUT — Editor de video en tu dispositivo</title>
+</head>
+<body>
+  <!-- ===================== PANTALLA: PROYECTOS ===================== -->
+  <section id="screen-home" class="screen active">
+    <header class="home-header">
+      <div class="brand">
+        <img src="icons/icon-192.png" alt="" class="brand-logo" />
+        <div>
+          <h1>PlayCUT</h1>
+          <p class="brand-sub">Tu editor. En tu teléfono. Sin nube.</p>
+        </div>
+      </div>
+      <button id="btn-install" class="ghost-btn" hidden>Instalar app</button>
+    </header>
+
+    <div class="home-actions">
+      <button id="btn-new-project" class="primary-btn big">
+        <span class="plus">＋</span> Nuevo proyecto
+      </button>
+    </div>
+
+    <h2 class="section-title">Tus proyectos</h2>
+    <div id="project-list" class="project-list"></div>
+    <p id="empty-projects" class="empty-hint">Todavía no tienes proyectos. Crea el primero — todo se guarda solo en este dispositivo.</p>
+
+    <footer class="privacy-note">
+      🔒 Todo tu contenido (videos, música, proyectos) se guarda <b>solo en este teléfono</b>.
+      Nada se sube a internet.
+    </footer>
+  </section>
+
+  <!-- ===================== PANTALLA: EDITOR ===================== -->
+  <section id="screen-editor" class="screen">
+    <header class="editor-topbar">
+      <button id="btn-back" class="icon-btn" title="Volver">‹</button>
+      <input id="project-name" class="project-name-input" value="Proyecto" />
+      <div class="topbar-actions">
+        <span id="save-status" class="save-status">Guardado</span>
+        <button id="btn-export" class="primary-btn small">Exportar</button>
+      </div>
+    </header>
+
+    <div class="preview-wrap">
+      <canvas id="preview" width="1080" height="1920"></canvas>
+      <div id="preview-empty" class="preview-empty">
+        <p>Añade videos o fotos para empezar</p>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button id="btn-play" class="icon-btn play" title="Reproducir">▶</button>
+      <span id="time-current" class="time">0:00.0</span>
+      <input id="seek" class="seek" type="range" min="0" max="1000" value="0" />
+      <span id="time-total" class="time">0:00.0</span>
+    </div>
+
+    <div class="timeline-area" id="timeline-area">
+      <div class="timeline-scroll" id="timeline-scroll">
+        <div class="timeline" id="timeline">
+          <div class="track track-video" id="track-video" data-track="video"></div>
+          <div class="track track-audio" id="track-audio" data-track="audio"></div>
+          <div class="track track-text" id="track-text" data-track="text"></div>
+        </div>
+      </div>
+      <div class="playhead" id="playhead"></div>
+    </div>
+
+    <!-- Barra de herramientas principal -->
+    <nav class="toolbar" id="toolbar-main">
+      <button class="tool" data-action="add-media"><i>🎬</i><span>Añadir</span></button>
+      <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
+      <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
+      <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
+      <button class="tool" data-action="adjust"><i>🎛️</i><span>Ajustes</span></button>
+    </nav>
+
+    <!-- Panel contextual de clip seleccionado -->
+    <div class="clip-tools" id="clip-tools" hidden>
+      <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
+      <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
+      <button class="tool" data-action="clip-split"><i>✂️</i><span>Dividir</span></button>
+      <button class="tool" data-action="clip-duplicate"><i>⧉</i><span>Duplicar</span></button>
+      <button class="tool" data-action="clip-adjust"><i>🎛️</i><span>Ajustes</span></button>
+      <button class="tool danger" data-action="clip-delete"><i>🗑️</i><span>Borrar</span></button>
+    </div>
+
+    <input id="file-media" type="file" accept="video/*,image/*" multiple hidden />
+    <input id="file-audio" type="file" accept="audio/*" multiple hidden />
+  </section>
+
+  <!-- ===================== HOJA: AJUSTES DE CLIP ===================== -->
+  <div id="sheet-adjust" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3 id="adjust-title">Ajustes</h3>
+      <div class="sliders">
+        <label>Volumen <output id="out-volume">100%</output>
+          <input id="adj-volume" type="range" min="0" max="200" value="100" /></label>
+        <label>Duración (imagen) <output id="out-duration">3.0s</output>
+          <input id="adj-duration" type="range" min="0.5" max="15" step="0.1" value="3" /></label>
+        <label>Brillo <output id="out-brightness">100%</output>
+          <input id="adj-brightness" type="range" min="0" max="200" value="100" /></label>
+        <label>Contraste <output id="out-contrast">100%</output>
+          <input id="adj-contrast" type="range" min="0" max="200" value="100" /></label>
+        <label>Saturación <output id="out-saturation">100%</output>
+          <input id="adj-saturation" type="range" min="0" max="200" value="100" /></label>
+        <label>Opacidad <output id="out-opacity">100%</output>
+          <input id="adj-opacity" type="range" min="0" max="100" value="100" /></label>
+      </div>
+      <div class="filters-row" id="filters-row">
+        <button class="chip" data-filter="none">Original</button>
+        <button class="chip" data-filter="bw">B/N</button>
+        <button class="chip" data-filter="warm">Cálido</button>
+        <button class="chip" data-filter="cool">Frío</button>
+        <button class="chip" data-filter="vivid">Vívido</button>
+        <button class="chip" data-filter="vintage">Vintage</button>
+      </div>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: EDITOR DE TEXTO ===================== -->
+  <div id="sheet-text" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Texto</h3>
+      <textarea id="text-content" class="text-area" placeholder="Escribe algo..."></textarea>
+      <div class="sliders">
+        <label>Tamaño <output id="out-textsize">64</output>
+          <input id="text-size" type="range" min="20" max="160" value="64" /></label>
+        <label>Posición vertical <output id="out-texty">50%</output>
+          <input id="text-y" type="range" min="0" max="100" value="80" /></label>
+      </div>
+      <div class="color-row" id="text-colors">
+        <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+        <button class="swatch" style="background:#000000" data-color="#000000"></button>
+        <button class="swatch" style="background:#ff3b6b" data-color="#ff3b6b"></button>
+        <button class="swatch" style="background:#ffd23b" data-color="#ffd23b"></button>
+        <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
+        <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
+        <button class="swatch" style="background:#b06bff" data-color="#b06bff"></button>
+      </div>
+      <div class="sheet-buttons">
+        <button class="ghost-btn" id="text-delete">Borrar</button>
+        <button class="primary-btn" data-close-sheet>Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: EXPORTAR ===================== -->
+  <div id="sheet-export" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Exportar video</h3>
+      <div id="export-config">
+        <div class="radio-group" id="export-quality">
+          <label><input type="radio" name="quality" value="720" /> 720p</label>
+          <label><input type="radio" name="quality" value="1080" checked /> 1080p</label>
+        </div>
+        <p class="export-note">El video se genera en tu teléfono en tiempo real. Mantén la pantalla encendida.</p>
+        <button class="primary-btn full" id="btn-start-export">Empezar exportación</button>
+      </div>
+      <div id="export-progress" hidden>
+        <div class="progress-ring-text"><span id="export-percent">0%</span></div>
+        <div class="progress-bar"><div id="export-bar" class="progress-fill"></div></div>
+        <p class="export-note">Grabando... no cierres la app.</p>
+      </div>
+      <div id="export-done" hidden>
+        <p class="done-msg">✅ ¡Listo!</p>
+        <video id="export-preview" controls playsinline class="export-video"></video>
+        <a id="export-download" class="primary-btn full" download>Descargar / Guardar</a>
+        <button class="ghost-btn full" data-close-sheet>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sheet-backdrop" class="sheet-backdrop"></div>
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

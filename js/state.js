@@ -28,7 +28,8 @@ export function createProject(name = 'Proyecto sin título') {
     height: h,
     fps: 30,
     thumb: null,
-    tracks: { video: [], audio: [], text: [] },
+    bgColor: '#000000',
+    tracks: { video: [], overlay: [], audio: [], text: [] },
   };
 }
 
@@ -60,6 +61,28 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     // transición con el clip anterior
     transition: { type: 'none', duration: 0.6 },
   };
+}
+
+// Capa superpuesta (Picture-in-Picture): video o imagen encima del principal,
+// posicionado libremente en el tiempo (start) y en pantalla (scale/offset).
+export function createOverlayClip({ mediaId, type, duration, width, height, start = 0 }) {
+  return {
+    id: uid(), mediaId, type,
+    start,
+    inPoint: 0, outPoint: duration, imageDuration: 3,
+    srcWidth: width, srcHeight: height, srcDuration: duration,
+    volume: 1, fadeIn: 0, fadeOut: 0,
+    brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
+    speed: 1, motion: 'none',
+    fillMode: 'contain',
+    scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
+    radius: 0.04, shadow: true,
+  };
+}
+
+export function overlayDuration(clip) {
+  if (clip.type === 'image') return Math.max(0.1, clip.imageDuration);
+  return Math.max(0.05, (clip.outPoint - clip.inPoint) / (clip.speed || 1));
 }
 
 export function createAudioClip({ mediaId, duration, start = 0, name = 'Audio' }) {
@@ -94,7 +117,9 @@ export function normalizeProject(p) {
   if (!p.ratio) { p.ratio = '9:16'; }
   if (!p.width || !p.height) { const [w, h] = RATIOS[p.ratio] || RATIOS['9:16']; p.width = w; p.height = h; }
   if (!p.fps) p.fps = 30;
-  p.tracks = p.tracks || { video: [], audio: [], text: [] };
+  if (!p.bgColor) p.bgColor = '#000000';
+  p.tracks = p.tracks || { video: [], overlay: [], audio: [], text: [] };
+  if (!p.tracks.overlay) p.tracks.overlay = [];
   for (const c of p.tracks.video) {
     c.speed = c.speed || 1;
     c.motion = c.motion || 'none';
@@ -103,6 +128,14 @@ export function normalizeProject(p) {
     c.scale = c.scale ?? 1; c.offsetX = c.offsetX ?? 0; c.offsetY = c.offsetY ?? 0; c.rotate = c.rotate ?? 0;
     c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     if (!c.transition) c.transition = { type: 'none', duration: 0.6 };
+  }
+  for (const c of p.tracks.overlay) {
+    c.speed = c.speed || 1; c.motion = c.motion || 'none'; c.fillMode = c.fillMode || 'contain';
+    c.scale = c.scale ?? 0.42; c.offsetX = c.offsetX ?? 0.26; c.offsetY = c.offsetY ?? -0.28;
+    c.rotate = c.rotate ?? 0; c.opacity = c.opacity ?? 1; c.filter = c.filter || 'none';
+    c.brightness = c.brightness ?? 1; c.contrast = c.contrast ?? 1; c.saturation = c.saturation ?? 1;
+    c.volume = c.volume ?? 1; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
+    c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
   }
   for (const c of p.tracks.audio) { c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
   for (const c of p.tracks.text) {
@@ -160,7 +193,9 @@ export function projectDuration(project) {
   for (const a of project.tracks.audio) audioEnd = Math.max(audioEnd, a.start + (a.outPoint - a.inPoint));
   let textEnd = 0;
   for (const t of project.tracks.text) textEnd = Math.max(textEnd, t.end);
-  return Math.max(vid, audioEnd, textEnd, 0);
+  let ovEnd = 0;
+  for (const o of (project.tracks.overlay || [])) ovEnd = Math.max(ovEnd, o.start + overlayDuration(o));
+  return Math.max(vid, audioEnd, textEnd, ovEnd, 0);
 }
 
 function srcTimeOf(clip, local) {

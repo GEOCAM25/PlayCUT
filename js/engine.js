@@ -3,9 +3,10 @@
 // movimiento Ken Burns, velocidad, fundidos de audio y render a 4K para exportar.
 
 import {
-  projectDuration, videoStateAt, clipDuration, clipFilterString, FONTS,
+  projectDuration, videoStateAt, clipDuration, clipFilterString, FONTS, overlayDuration,
 } from './state.js';
 import { blobURLFor, connectElement, setClipGain, getAudioContext } from './media.js';
+import { getProfile } from './perf.js';
 
 export class Engine {
   constructor(canvas) {
@@ -24,17 +25,31 @@ export class Engine {
 
   setProject(project) {
     this.project = project;
-    this.previewCanvas.width = project.width;
-    this.previewCanvas.height = project.height;
+    this._sizePreview();
     this.recalc();
     this.syncElements();
     this.render(this.playhead);
   }
 
+  // Dimensiona el lienzo de vista previa según el perfil de rendimiento.
+  _sizePreview() {
+    const s = getProfile().previewScale;
+    const long = Math.max(this.project.width, this.project.height);
+    // Limita el lado largo de la vista previa para ir fluida en gama baja.
+    const cap = Math.round(long * s);
+    const k = Math.min(1, cap / long);
+    this.previewCanvas.width = Math.round(this.project.width * k) || 2;
+    this.previewCanvas.height = Math.round(this.project.height * k) || 2;
+  }
+
   applyRatio() {
-    this.previewCanvas.width = this.project.width;
-    this.previewCanvas.height = this.project.height;
+    this._sizePreview();
     this.render(this.playhead);
+  }
+
+  applyPerf() {
+    if (!this.playing) { this._sizePreview(); this.render(this.playhead); }
+    else this._sizePreview();
   }
 
   recalc() {
@@ -46,6 +61,10 @@ export class Engine {
     if (!this.project) return;
     const needed = new Set();
     for (const clip of this.project.tracks.video) {
+      needed.add(clip.id);
+      if (clip.type === 'video') this.ensureVideo(clip); else this.ensureImage(clip);
+    }
+    for (const clip of (this.project.tracks.overlay || [])) {
       needed.add(clip.id);
       if (clip.type === 'video') this.ensureVideo(clip); else this.ensureImage(clip);
     }
@@ -114,12 +133,18 @@ export class Engine {
   render(t) {
     const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
     ctx.save(); ctx.filter = 'none'; ctx.globalAlpha = 1;
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    ctx.fillStyle = this.project.bgColor || '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
 
     const vs = videoStateAt(this.project.tracks.video, t);
     if (vs) {
       if (vs.b) this.drawTransition(vs);
       else this.drawClip(vs.a, vs.localA, {});
+    }
+
+    // Capa superpuesta (PiP), encima del video principal.
+    for (const ov of (this.project.tracks.overlay || [])) {
+      const d = overlayDuration(ov);
+      if (t >= ov.start && t < ov.start + d) this.drawClip(ov, t - ov.start, { isOverlay: true });
     }
 
     for (const tc of this.project.tracks.text) {
@@ -165,8 +190,8 @@ export class Engine {
     const W = this.canvas.width, H = this.canvas.height;
     const useCover = clip.fillMode === 'cover' || m.cover;
 
-    // Fondo difuminado si hay barras (modo contain).
-    if (!useCover && clip.bg === 'blur') {
+    // Fondo difuminado si hay barras (modo contain) — solo para el clip base.
+    if (!extra.isOverlay && !useCover && clip.bg === 'blur') {
       this.ctx.save();
       this.ctx.filter = 'blur(28px) brightness(.6)';
       this._drawFit(src, sw, sh, true, 1.15, 0, 0, 0);
@@ -191,19 +216,33 @@ export class Engine {
     const ty = (clip.offsetY || 0) * H + m.dy * H + (extra.ty || 0);
     const rot = ((clip.rotate || 0) + (extra.rotate || 0)) * Math.PI / 180;
 
-    this._drawFit(src, sw, sh, useCover, totalScale, tx, ty, rot);
+    this._drawFit(src, sw, sh, useCover, totalScale, tx, ty, rot,
+      extra.isOverlay ? { radius: clip.radius, shadow: clip.shadow } : null);
     this.ctx.restore();
   }
 
-  _drawFit(src, sw, sh, cover, scale, tx, ty, rot) {
+  _drawFit(src, sw, sh, cover, scale, tx, ty, rot, opts) {
     const W = this.canvas.width, H = this.canvas.height;
     const base = cover ? Math.max(W / sw, H / sh) : Math.min(W / sw, H / sh);
     const w = sw * base * scale, h = sh * base * scale;
-    this.ctx.save();
-    this.ctx.translate(W / 2 + tx, H / 2 + ty);
-    if (rot) this.ctx.rotate(rot);
-    this.ctx.drawImage(src, -w / 2, -h / 2, w, h);
-    this.ctx.restore();
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(W / 2 + tx, H / 2 + ty);
+    if (rot) ctx.rotate(rot);
+    const r = opts && opts.radius ? opts.radius * Math.min(w, h) : 0;
+    if (opts && opts.shadow) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.55)';
+      ctx.shadowBlur = Math.max(w, h) * 0.05;
+      ctx.shadowOffsetY = h * 0.012;
+      ctx.fillStyle = '#000';
+      this._roundRect(ctx, -w / 2, -h / 2, w, h, r);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip(); }
+    ctx.drawImage(src, -w / 2, -h / 2, w, h);
+    ctx.restore();
   }
 
   drawTransition(vs) {
@@ -363,8 +402,14 @@ export class Engine {
       return;
     }
     this.playhead = t;
-    this.syncPlayback(t);
-    this.render(t);
+    // Límite de fps de vista previa según el perfil (ahorra batería en gama
+    // baja). Durante la exportación se renderiza siempre a máxima cadencia.
+    const minI = this._exporting ? 0 : (1000 / (getProfile().targetFps || 60)) - 1;
+    if (now - (this._lastRenderPerf || 0) >= minI) {
+      this._lastRenderPerf = now;
+      this.syncPlayback(t);
+      this.render(t);
+    }
     this.onTick && this.onTick(t, false);
     this._raf = requestAnimationFrame(() => this.tick());
   }
@@ -416,6 +461,22 @@ export class Engine {
         setClipGain(clip.id, (clip.volume ?? 1) * this._audioEnv(clip, t, start, end));
       } else if (!rec.el.paused) rec.el.pause();
     }
+
+    // Capa overlay (PiP): reproduce videos superpuestos activos.
+    for (const clip of (this.project.tracks.overlay || [])) {
+      if (clip.type !== 'video') continue;
+      const rec = this.elements.get(clip.id);
+      if (!rec || !rec.ready) continue;
+      const dur = overlayDuration(clip);
+      const start = clip.start, end = clip.start + dur;
+      if (t >= start && t < end) {
+        const expected = clip.inPoint + (t - start) * (clip.speed || 1);
+        if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
+        rec.el.playbackRate = clip.speed || 1;
+        if (rec.el.paused) rec.el.play().catch(() => {});
+        setClipGain(clip.id, (clip.volume ?? 1) * this._audioEnv(clip, t, start, end));
+      } else if (!rec.el.paused) rec.el.pause();
+    }
   }
 
   seek(t) {
@@ -427,6 +488,14 @@ export class Engine {
       if (rec && rec.el) { try { rec.el.currentTime = clip.inPoint + local * (clip.speed || 1); } catch {} }
     };
     if (vs) { setT(vs.a, vs.localA); if (vs.b) setT(vs.b, vs.localB); }
+    for (const ov of (this.project.tracks.overlay || [])) {
+      if (ov.type !== 'video') continue;
+      const d = overlayDuration(ov);
+      if (this.playhead >= ov.start && this.playhead < ov.start + d) {
+        const rec = this.elements.get(ov.id);
+        if (rec && rec.el) { try { rec.el.currentTime = ov.inPoint + (this.playhead - ov.start) * (ov.speed || 1); } catch {} }
+      }
+    }
     this.render(this.playhead);
   }
 
@@ -435,12 +504,14 @@ export class Engine {
   // ==================== EXPORTAR EN ALTA RESOLUCIÓN ====================
   beginExport(w, h) {
     this._prevCanvas = this.canvas; this._prevCtx = this.ctx;
+    this._exporting = true;
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     this.canvas = c; this.ctx = c.getContext('2d', { alpha: false });
     return c;
   }
   endExport() {
+    this._exporting = false;
     if (this._prevCanvas) { this.canvas = this._prevCanvas; this.ctx = this._prevCtx; this._prevCanvas = null; }
     this.render(this.playhead);
   }

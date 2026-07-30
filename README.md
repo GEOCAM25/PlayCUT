@@ -25,8 +25,11 @@ cada usuario, de forma independiente y privada.
 - 🔀 **Transiciones reales** entre clips (con solapamiento): fundido, a negro,
   a blanco, deslizar (4 direcciones), zoom, barrido, desenfoque y giro — con
   duración ajustable.
+- 🖼️ **Capa Overlay / Picture-in-Picture (PiP)**: superpone videos o fotos
+  encima del principal, con posición y tamaño libres, esquinas redondeadas y
+  sombra. Ideal para reacciones, collages y marcos.
 - ⏱️ **Control de velocidad** por clip (0.25× a 4×), cámara lenta y rápida.
-- ✦ **Movimiento Ken Burns**: zoom in/out y paneo (Ken Burns) sobre fotos y videos.
+- ✦ **Movimiento Ken Burns**: zoom in/out y paneo sobre fotos y videos.
 - 🎛️ **Transformación por clip**: escala, rotación, encuadre *Ajustar/Rellenar*
   y **fondo difuminado** automático para las barras.
 - 🎨 **10 filtros**: Vívido, Cine, Cálido, Frío, Fade, Vintage, Noir, Neón, B/N…
@@ -35,6 +38,18 @@ cada usuario, de forma independiente y privada.
 - 😀 **Stickers** (emojis) con tamaño, posición y rotación.
 - 🎵 **Audio** con volumen independiente, posición libre y **fade in / fade out**.
 - 🔊 **Crossfade de audio** automático durante las transiciones.
+- 🎨 **Color de fondo** del lienzo configurable.
+- 🔍 **Zoom de la línea de tiempo** para editar con precisión.
+- ↩️ **Deshacer / Rehacer**.
+
+**Multi-dispositivo y rendimiento**
+- 💻📱 **Diseño responsive**: en el teléfono, interfaz vertical táctil; en
+  tablet, hojas centradas y más aire; en **PC**, layout de escritorio con
+  vista previa grande y **panel lateral de herramientas**.
+- ⚡ **Rendimiento adaptativo**: detecta las capacidades del equipo (núcleos,
+  memoria, pantalla) y ajusta automáticamente la resolución y los fps de la
+  vista previa para ir **siempre fluido**; modos *Automático / Alta / Ahorro*.
+- ⌨️ **Atajos de teclado** en escritorio (Espacio, ← →, S, Supr, Ctrl+Z/Y, +/−).
 
 **Exportar y guardar**
 - 📤 **Exportación hasta 4K** (720p / 1080p / 2K / 4K) a **24/30/60 fps**,

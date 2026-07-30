@@ -53,6 +53,7 @@
       <input id="project-name" class="project-name-input" value="Proyecto" />
       <div class="topbar-actions">
         <button id="btn-ratio" class="icon-btn mini" title="Formato">▭</button>
+        <button id="btn-settings" class="icon-btn mini" title="Ajustes">⚙</button>
         <button id="btn-export" class="primary-btn small">Exportar</button>
       </div>
     </header>
@@ -73,9 +74,14 @@
     </div>
 
     <div class="timeline-area" id="timeline-area">
+      <div class="zoom-controls">
+        <button id="btn-zoom-out" class="zoom-btn" title="Alejar">－</button>
+        <button id="btn-zoom-in" class="zoom-btn" title="Acercar">＋</button>
+      </div>
       <div class="timeline-scroll" id="timeline-scroll">
         <div class="timeline" id="timeline">
           <div class="track track-video" id="track-video" data-track="video"></div>
+          <div class="track track-overlay" id="track-overlay" data-track="overlay"></div>
           <div class="track track-audio" id="track-audio" data-track="audio"></div>
           <div class="track track-text" id="track-text" data-track="text"></div>
         </div>
@@ -86,6 +92,7 @@
     <!-- Barra de herramientas principal -->
     <nav class="toolbar" id="toolbar-main">
       <button class="tool" data-action="add-media"><i>🎬</i><span>Añadir</span></button>
+      <button class="tool" data-action="add-overlay"><i>🖼️</i><span>PiP</span></button>
       <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
       <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
       <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
@@ -107,6 +114,7 @@
     </div>
 
     <input id="file-media" type="file" accept="video/*,image/*" multiple hidden />
+    <input id="file-overlay" type="file" accept="video/*,image/*" multiple hidden />
     <input id="file-audio" type="file" accept="audio/*" multiple hidden />
   </section>
 
@@ -301,6 +309,34 @@
         <button class="ghost-btn" id="text-delete">Borrar</button>
         <button class="primary-btn" data-close-sheet>Listo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: AJUSTES / RENDIMIENTO ===================== -->
+  <div id="sheet-settings" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Ajustes</h3>
+      <p class="sheet-sub">Rendimiento <span class="badge-pro">AUTO</span></p>
+      <p class="export-meta" id="device-info">—</p>
+      <div class="opt-grid" id="perf-grid">
+        <button class="opt" data-perf="auto"><span class="opt-ico">⚙</span>Automático</button>
+        <button class="opt" data-perf="high"><span class="opt-ico">🚀</span>Alta</button>
+        <button class="opt" data-perf="low"><span class="opt-ico">🔋</span>Ahorro</button>
+      </div>
+      <p class="sheet-sub">Color de fondo</p>
+      <div class="color-row" id="bg-colors">
+        <button class="swatch" style="background:#000000" data-color="#000000"></button>
+        <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+        <button class="swatch" style="background:#101018" data-color="#101018"></button>
+        <button class="swatch" style="background:#ff3b6b" data-color="#ff3b6b"></button>
+        <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
+        <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
+        <button class="swatch" style="background:#7c3aed" data-color="#7c3aed"></button>
+      </div>
+      <p class="sheet-sub kbd-only">Atajos de teclado</p>
+      <p class="export-meta kbd-only">Espacio: reproducir · ← →: mover · S: dividir · Supr: borrar · Ctrl+Z/Y: deshacer</p>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>
   </div>
 

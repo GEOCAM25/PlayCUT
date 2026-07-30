@@ -1,7 +1,7 @@
 // app.js — Controlador principal de PlayCUT (v2 Pro).
 
 import {
-  createProject, createVideoClip, createAudioClip, createTextClip,
+  createProject, createVideoClip, createAudioClip, createTextClip, createOverlayClip,
   clipDuration, projectDuration, videoClipAt, formatTime,
   normalizeProject, RATIOS,
 } from './state.js';
@@ -10,6 +10,7 @@ import { importFile, loadMediaRecord } from './media.js';
 import { Engine } from './engine.js';
 import { Timeline } from './timeline.js';
 import { exportProject, computeExportSize } from './exporter.js';
+import * as perf from './perf.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -24,7 +25,8 @@ const els = {
   canvas: $('#preview'), previewEmpty: $('#preview-empty'),
   btnPlay: $('#btn-play'), timeCurrent: $('#time-current'), timeTotal: $('#time-total'),
   seek: $('#seek'), toolbarMain: $('#toolbar-main'), clipTools: $('#clip-tools'),
-  fileMedia: $('#file-media'), fileAudio: $('#file-audio'),
+  fileMedia: $('#file-media'), fileOverlay: $('#file-overlay'), fileAudio: $('#file-audio'),
+  btnSettings: $('#btn-settings'), btnZoomIn: $('#btn-zoom-in'), btnZoomOut: $('#btn-zoom-out'),
   toast: $('#toast'), backdrop: $('#sheet-backdrop'),
 };
 
@@ -164,6 +166,7 @@ async function openProject(id) {
   mediaThumbs.clear(); mediaNames.clear();
   const ids = new Set();
   for (const c of project.tracks.video) ids.add(c.mediaId);
+  for (const c of project.tracks.overlay) ids.add(c.mediaId);
   for (const c of project.tracks.audio) ids.add(c.mediaId);
   for (const mid of ids) {
     const rec = await loadMediaRecord(mid);
@@ -208,6 +211,25 @@ async function handleMediaFiles(files) {
   refresh(); pushHistory(); toast('¡Añadido!');
 }
 
+async function handleOverlayFiles(files) {
+  if (!files.length) return;
+  pushHistory();
+  toast('Importando PiP…');
+  let last = null;
+  for (const file of files) {
+    try {
+      const rec = await importFile(file);
+      if (rec.kind === 'audio') { toast('El PiP no admite audio suelto'); continue; }
+      if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
+      mediaNames.set(rec.id, rec.name);
+      const clip = createOverlayClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height, start: engine.playhead });
+      project.tracks.overlay.push(clip); last = clip;
+    } catch (e) { console.error(e); toast('No se pudo importar ' + file.name); }
+  }
+  refresh(); pushHistory();
+  if (last) { timeline.select(last.id, 'overlay'); toast('PiP añadido — muévelo y ajústalo'); }
+}
+
 // ==================================================================
 //  BARRAS
 // ==================================================================
@@ -216,6 +238,7 @@ function bindToolbar() {
     const btn = e.target.closest('.tool'); if (!btn) return;
     switch (btn.dataset.action) {
       case 'add-media': els.fileMedia.click(); break;
+      case 'add-overlay': els.fileOverlay.click(); break;
       case 'add-audio': els.fileAudio.click(); break;
       case 'add-text': addTextAtPlayhead(false); break;
       case 'add-sticker': addTextAtPlayhead(true); break;
@@ -229,10 +252,12 @@ function bindToolbar() {
     const sel = getSelectedClip(); if (!sel) return;
     switch (btn.dataset.action) {
       case 'clip-adjust':
-        if (sel.track === 'text') openTextSheet(sel.clip); else openAdjustSheet(sel.clip, sel.track);
+        if (sel.track === 'text') openTextSheet(sel.clip);
+        else if (sel.track === 'audio') openAdjustSheet(sel.clip, 'audio');
+        else openAdjustSheet(sel.clip, sel.track);
         break;
       case 'clip-speed':
-        if (sel.track === 'video' && sel.clip.type === 'video') openSpeedSheet(sel.clip);
+        if ((sel.track === 'video' || sel.track === 'overlay') && sel.clip.type === 'video') openSpeedSheet(sel.clip);
         else toast('La velocidad solo aplica a clips de video');
         break;
       case 'clip-transition':
@@ -241,7 +266,7 @@ function bindToolbar() {
         break;
       case 'clip-anim':
         if (sel.track === 'text') openTextSheet(sel.clip);
-        else if (sel.track === 'video') openAdjustSheet(sel.clip, sel.track);
+        else if (sel.track === 'video' || sel.track === 'overlay') openAdjustSheet(sel.clip, sel.track);
         else toast('Sin animación para este clip');
         break;
       case 'clip-split': splitAtPlayhead(); break;
@@ -293,13 +318,21 @@ function splitAtPlayhead() {
 }
 
 function moveClip(sel, dir) {
-  if (sel.track !== 'video') { toast('Solo se reordenan los clips de video'); return; }
-  const clips = project.tracks.video;
-  const i = clips.findIndex(c => c.id === sel.clip.id); const j = i + dir;
-  if (j < 0 || j >= clips.length) return;
   pushHistory();
-  [clips[i], clips[j]] = [clips[j], clips[i]];
-  refresh(); timeline.select(sel.clip.id, 'video');
+  if (sel.track === 'video') {
+    const clips = project.tracks.video;
+    const i = clips.findIndex(c => c.id === sel.clip.id); const j = i + dir;
+    if (j < 0 || j >= clips.length) return;
+    [clips[i], clips[j]] = [clips[j], clips[i]];
+  } else {
+    // overlay / audio / text: desplaza en el tiempo.
+    const step = 0.3 * dir;
+    const c = sel.clip;
+    const ns = Math.max(0, c.start + step);
+    if (sel.track === 'text') { const len = c.end - c.start; c.start = ns; c.end = ns + len; }
+    else c.start = ns;
+  }
+  refresh(); timeline.select(sel.clip.id, sel.track);
 }
 
 function duplicateClip(sel) {
@@ -343,9 +376,9 @@ function openAdjustSheet(clip, track) {
   pushHistory();
   adjustTarget = { clip, track };
   const isImage = clip.type === 'image';
-  const isVisual = track === 'video';
-  const hasVolume = track === 'audio' || (track === 'video' && clip.type === 'video');
-  $('#adjust-title').textContent = track === 'audio' ? 'Audio' : isImage ? 'Imagen' : 'Video';
+  const isVisual = track === 'video' || track === 'overlay';
+  const hasVolume = track === 'audio' || (isVisual && clip.type === 'video');
+  $('#adjust-title').textContent = track === 'audio' ? 'Audio' : track === 'overlay' ? 'PiP / Overlay' : isImage ? 'Imagen' : 'Video';
   $('#adj-visual-block').style.display = isVisual ? '' : 'none';
 
   const set = (sel, v) => { $(sel).value = v; };
@@ -553,7 +586,55 @@ function bindText() {
 // ==================================================================
 //  EXPORTAR
 // ==================================================================
-let exportRes = 1080, exportFps = 30;
+let exportRes = perf.suggestedExportTier(), exportFps = 30;
+
+// ---------- Ajustes / Rendimiento ----------
+function openSettings() {
+  $('#device-info').textContent = perf.deviceSummary();
+  setActive('#perf-grid', 'perf', perf.getMode());
+  $$('#bg-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === project.bgColor));
+  openSheet('sheet-settings');
+}
+function bindSettings() {
+  $('#perf-grid').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-perf]'); if (!b) return;
+    perf.setMode(b.dataset.perf); setActive('#perf-grid', 'perf', b.dataset.perf);
+    engine.applyPerf(); $('#device-info').textContent = perf.deviceSummary();
+    toast('Rendimiento: ' + b.textContent.trim());
+  });
+  $('#bg-colors').addEventListener('click', (e) => {
+    const s = e.target.closest('.swatch'); if (!s) return;
+    pushHistory(); project.bgColor = s.dataset.color;
+    $$('#bg-colors .swatch').forEach(x => x.classList.toggle('active', x === s));
+    engine.render(engine.playhead); scheduleSave();
+  });
+}
+
+// ---------- Zoom de la línea de tiempo ----------
+function zoomBy(f) { timeline.setZoom(timeline._zoom * f, engine.playhead); }
+
+// ---------- Atajos de teclado (escritorio) ----------
+function nudgePlayhead(d) {
+  engine.pause(); setPlayIcon(false);
+  const t = Math.max(0, Math.min(engine.playhead + d, projectDuration(project)));
+  engine.seek(t); timeline.setPlayhead(t); updateTimeUI(t);
+}
+function onKey(e) {
+  if (!screens.editor.classList.contains('active')) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+  switch (e.key) {
+    case ' ': e.preventDefault(); togglePlay(); break;
+    case 'ArrowLeft': e.preventDefault(); nudgePlayhead(e.shiftKey ? -1 : -0.1); break;
+    case 'ArrowRight': e.preventDefault(); nudgePlayhead(e.shiftKey ? 1 : 0.1); break;
+    case 's': case 'S': splitAtPlayhead(); break;
+    case '+': case '=': zoomBy(1.4); break;
+    case '-': case '_': zoomBy(1 / 1.4); break;
+    case 'Delete': case 'Backspace': { const sel = getSelectedClip(); if (sel) deleteClip(sel); break; }
+  }
+}
 function updateExportMeta() {
   const { w, h } = computeExportSize(project, exportRes);
   $('#export-meta').textContent = `${w} × ${h} · ${exportFps} fps`;
@@ -615,7 +696,13 @@ function bindGlobal() {
   });
 
   els.fileMedia.addEventListener('change', (e) => { handleMediaFiles([...e.target.files]); e.target.value = ''; });
+  els.fileOverlay.addEventListener('change', (e) => { handleOverlayFiles([...e.target.files]); e.target.value = ''; });
   els.fileAudio.addEventListener('change', (e) => { handleMediaFiles([...e.target.files]); e.target.value = ''; });
+  els.btnSettings.addEventListener('click', openSettings);
+  els.btnZoomIn.addEventListener('click', () => zoomBy(1.4));
+  els.btnZoomOut.addEventListener('click', () => zoomBy(1 / 1.4));
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('resize', () => { if (project) { timeline.render(); timeline.setPlayhead(engine.playhead); } });
 
   $('#timeline-scroll').addEventListener('click', (e) => {
     if (e.target.classList.contains('track') || e.target.classList.contains('timeline')) { timeline.clearSelection(); }
@@ -634,7 +721,7 @@ function bindGlobal() {
 function initTimeline() {
   timeline = new Timeline({
     root: $('#timeline'), scroll: $('#timeline-scroll'),
-    trackEls: { video: $('#track-video'), audio: $('#track-audio'), text: $('#track-text') },
+    trackEls: { video: $('#track-video'), overlay: $('#track-overlay'), audio: $('#track-audio'), text: $('#track-text') },
     isPlaying: () => engine.playing,
     onSelect: onClipSelected,
     onChange: () => { engine.recalc(); engine.applyGains(); updateDurationUI(); scheduleSave(); pushHistory(); },
@@ -645,7 +732,7 @@ function initTimeline() {
 
 async function main() {
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
-  bindTransition(); bindRatio(); bindText(); bindExport();
+  bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

@@ -1,6 +1,6 @@
 // timeline.js — Render e interacción de la línea de tiempo (táctil).
 
-import { clipDuration, videoClipStart, projectDuration } from './state.js';
+import { clipDuration, videoClipStart, projectDuration, videoLayout } from './state.js';
 
 export const PPS = 90; // píxeles por segundo
 
@@ -12,6 +12,7 @@ export class Timeline {
     this.onSelect = opts.onSelect;       // (clip, track) | (null)
     this.onChange = opts.onChange;       // () => void  (persistir + recalcular)
     this.onScrub = opts.onScrub;         // (time) => void
+    this.onTransition = opts.onTransition; // (clip, index) => void
     this.isPlaying = opts.isPlaying;     // () => bool
     this.project = null;
     this.selectedId = null;
@@ -68,8 +69,8 @@ export class Timeline {
       track.appendChild(this._hint('Toca «Añadir» para poner tu primer video o foto'));
       return;
     }
-    clips.forEach((clip, i) => {
-      const start = videoClipStart(clips, i);
+    const layout = videoLayout(clips);
+    layout.forEach(({ clip, start }, i) => {
       const el = this._buildClip(clip, 'video', start, clipDuration(clip));
       const media = this._mediaThumb(clip.mediaId);
       if (media) {
@@ -79,10 +80,28 @@ export class Timeline {
       el.classList.add(clip.type === 'image' ? 'type-image' : 'type-video');
       const label = document.createElement('span');
       label.className = 'clip-label';
-      label.textContent = clip.type === 'image' ? '🖼️' : '🎬';
+      let tag = clip.type === 'image' ? '🖼️' : '🎬';
+      if ((clip.speed || 1) !== 1) tag += ` ${(clip.speed).toFixed(clip.speed % 1 ? 1 : 0)}×`;
+      if (clip.motion && clip.motion !== 'none') tag += ' ✦';
+      label.textContent = tag;
       el.appendChild(label);
       this._addTrimHandles(el, clip, 'video');
       track.appendChild(el);
+
+      // Marcador de transición con el clip anterior.
+      if (i > 0) {
+        const tr = clip.transition || { type: 'none' };
+        const mk = document.createElement('button');
+        mk.className = 'transition-marker' + (tr.type !== 'none' ? ' active' : '');
+        mk.style.left = (start * PPS) + 'px';
+        mk.textContent = tr.type !== 'none' ? '◆' : '⇋';
+        mk.title = 'Transición';
+        mk.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.onTransition && this.onTransition(clip, i);
+        });
+        track.appendChild(mk);
+      }
     });
   }
 

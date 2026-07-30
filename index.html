@@ -48,12 +48,15 @@
   <section id="screen-editor" class="screen">
     <header class="editor-topbar">
       <button id="btn-back" class="icon-btn" title="Volver">‹</button>
+      <button id="btn-undo" class="icon-btn mini" title="Deshacer" disabled>↶</button>
+      <button id="btn-redo" class="icon-btn mini" title="Rehacer" disabled>↷</button>
       <input id="project-name" class="project-name-input" value="Proyecto" />
       <div class="topbar-actions">
-        <span id="save-status" class="save-status">Guardado</span>
+        <button id="btn-ratio" class="icon-btn mini" title="Formato">▭</button>
         <button id="btn-export" class="primary-btn small">Exportar</button>
       </div>
     </header>
+    <div class="save-row"><span id="save-status" class="save-status">Guardado</span></div>
 
     <div class="preview-wrap">
       <canvas id="preview" width="1080" height="1920"></canvas>
@@ -83,19 +86,23 @@
     <!-- Barra de herramientas principal -->
     <nav class="toolbar" id="toolbar-main">
       <button class="tool" data-action="add-media"><i>🎬</i><span>Añadir</span></button>
-      <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
+      <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
       <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
-      <button class="tool" data-action="adjust"><i>🎛️</i><span>Ajustes</span></button>
+      <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
+      <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
     </nav>
 
     <!-- Panel contextual de clip seleccionado -->
     <div class="clip-tools" id="clip-tools" hidden>
-      <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
-      <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
+      <button class="tool" data-action="clip-adjust"><i>🎛️</i><span>Editar</span></button>
+      <button class="tool" data-action="clip-speed"><i>⏱️</i><span>Velocidad</span></button>
+      <button class="tool" data-action="clip-transition"><i>⇋</i><span>Transición</span></button>
+      <button class="tool" data-action="clip-anim"><i>✨</i><span>Animar</span></button>
       <button class="tool" data-action="clip-split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="clip-duplicate"><i>⧉</i><span>Duplicar</span></button>
-      <button class="tool" data-action="clip-adjust"><i>🎛️</i><span>Ajustes</span></button>
+      <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
+      <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
       <button class="tool danger" data-action="clip-delete"><i>🗑️</i><span>Borrar</span></button>
     </div>
 
@@ -107,28 +114,130 @@
   <div id="sheet-adjust" class="sheet">
     <div class="sheet-inner">
       <div class="sheet-handle"></div>
-      <h3 id="adjust-title">Ajustes</h3>
+      <h3 id="adjust-title">Editar</h3>
+
+      <div id="adj-visual-block">
+        <p class="sheet-sub">Filtros</p>
+        <div class="filters-row" id="filters-row">
+          <button class="chip" data-filter="none">Original</button>
+          <button class="chip" data-filter="vivid">Vívido</button>
+          <button class="chip" data-filter="cine">Cine</button>
+          <button class="chip" data-filter="warm">Cálido</button>
+          <button class="chip" data-filter="cool">Frío</button>
+          <button class="chip" data-filter="fade">Fade</button>
+          <button class="chip" data-filter="vintage">Vintage</button>
+          <button class="chip" data-filter="noir">Noir</button>
+          <button class="chip" data-filter="neon">Neón</button>
+          <button class="chip" data-filter="bw">B/N</button>
+        </div>
+
+        <p class="sheet-sub">Movimiento <span class="badge-pro">PRO</span></p>
+        <div class="opt-chips" id="motion-row">
+          <button class="chip" data-motion="none">Ninguno</button>
+          <button class="chip" data-motion="zoomIn">Zoom in</button>
+          <button class="chip" data-motion="zoomOut">Zoom out</button>
+          <button class="chip" data-motion="panL">Pan ←</button>
+          <button class="chip" data-motion="panR">Pan →</button>
+          <button class="chip" data-motion="panU">Pan ↑</button>
+          <button class="chip" data-motion="panD">Pan ↓</button>
+        </div>
+
+        <p class="sheet-sub">Encuadre</p>
+        <div class="opt-grid" id="fill-row">
+          <button class="opt" data-fill="contain"><span class="opt-ico">▭</span>Ajustar</button>
+          <button class="opt" data-fill="cover"><span class="opt-ico">⬛</span>Rellenar</button>
+          <button class="opt" data-bg="blur"><span class="opt-ico">🌫️</span>Fondo blur</button>
+        </div>
+      </div>
+
       <div class="sliders">
         <label>Volumen <output id="out-volume">100%</output>
           <input id="adj-volume" type="range" min="0" max="200" value="100" /></label>
-        <label>Duración (imagen) <output id="out-duration">3.0s</output>
+        <label class="only-audio">Fade in <output id="out-fadein">0.0s</output>
+          <input id="adj-fadein" type="range" min="0" max="5" step="0.1" value="0" /></label>
+        <label class="only-audio">Fade out <output id="out-fadeout">0.0s</output>
+          <input id="adj-fadeout" type="range" min="0" max="5" step="0.1" value="0" /></label>
+        <label class="only-image">Duración <output id="out-duration">3.0s</output>
           <input id="adj-duration" type="range" min="0.5" max="15" step="0.1" value="3" /></label>
-        <label>Brillo <output id="out-brightness">100%</output>
+        <label class="only-visual">Escala <output id="out-scale">100%</output>
+          <input id="adj-scale" type="range" min="50" max="300" value="100" /></label>
+        <label class="only-visual">Rotación <output id="out-rotate">0°</output>
+          <input id="adj-rotate" type="range" min="-180" max="180" value="0" /></label>
+        <label class="only-visual">Brillo <output id="out-brightness">100%</output>
           <input id="adj-brightness" type="range" min="0" max="200" value="100" /></label>
-        <label>Contraste <output id="out-contrast">100%</output>
+        <label class="only-visual">Contraste <output id="out-contrast">100%</output>
           <input id="adj-contrast" type="range" min="0" max="200" value="100" /></label>
-        <label>Saturación <output id="out-saturation">100%</output>
+        <label class="only-visual">Saturación <output id="out-saturation">100%</output>
           <input id="adj-saturation" type="range" min="0" max="200" value="100" /></label>
-        <label>Opacidad <output id="out-opacity">100%</output>
+        <label class="only-visual">Opacidad <output id="out-opacity">100%</output>
           <input id="adj-opacity" type="range" min="0" max="100" value="100" /></label>
       </div>
-      <div class="filters-row" id="filters-row">
-        <button class="chip" data-filter="none">Original</button>
-        <button class="chip" data-filter="bw">B/N</button>
-        <button class="chip" data-filter="warm">Cálido</button>
-        <button class="chip" data-filter="cool">Frío</button>
-        <button class="chip" data-filter="vivid">Vívido</button>
-        <button class="chip" data-filter="vintage">Vintage</button>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: VELOCIDAD ===================== -->
+  <div id="sheet-speed" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Velocidad <span class="badge-pro">PRO</span></h3>
+      <div class="opt-chips" id="speed-presets">
+        <button class="chip" data-speed="0.25">0.25×</button>
+        <button class="chip" data-speed="0.5">0.5×</button>
+        <button class="chip" data-speed="1">1×</button>
+        <button class="chip" data-speed="1.5">1.5×</button>
+        <button class="chip" data-speed="2">2×</button>
+        <button class="chip" data-speed="3">3×</button>
+        <button class="chip" data-speed="4">4×</button>
+      </div>
+      <div class="sliders">
+        <label>Velocidad <output id="out-speed">1.0×</output>
+          <input id="adj-speed" type="range" min="0.25" max="4" step="0.05" value="1" /></label>
+      </div>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: TRANSICIÓN ===================== -->
+  <div id="sheet-transition" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Transición <span class="badge-pro">PRO</span></h3>
+      <p class="sheet-sub">Efecto al unir con el clip anterior</p>
+      <div class="opt-grid" id="transition-grid">
+        <button class="opt" data-trans="none"><span class="opt-ico">⊘</span>Ninguna</button>
+        <button class="opt" data-trans="dissolve"><span class="opt-ico">◑</span>Fundido</button>
+        <button class="opt" data-trans="fadeblack"><span class="opt-ico">◾</span>A negro</button>
+        <button class="opt" data-trans="fadewhite"><span class="opt-ico">◽</span>A blanco</button>
+        <button class="opt" data-trans="slideleft"><span class="opt-ico">←</span>Deslizar ←</button>
+        <button class="opt" data-trans="slideright"><span class="opt-ico">→</span>Deslizar →</button>
+        <button class="opt" data-trans="slideup"><span class="opt-ico">↑</span>Deslizar ↑</button>
+        <button class="opt" data-trans="slidedown"><span class="opt-ico">↓</span>Deslizar ↓</button>
+        <button class="opt" data-trans="zoomin"><span class="opt-ico">⤢</span>Zoom</button>
+        <button class="opt" data-trans="wipeleft"><span class="opt-ico">▤</span>Barrido</button>
+        <button class="opt" data-trans="blur"><span class="opt-ico">🌫️</span>Desenfoque</button>
+        <button class="opt" data-trans="spin"><span class="opt-ico">↻</span>Giro</button>
+      </div>
+      <div class="sliders">
+        <label>Duración <output id="out-transdur">0.6s</output>
+          <input id="adj-transdur" type="range" min="0.2" max="2" step="0.1" value="0.6" /></label>
+      </div>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: FORMATO ===================== -->
+  <div id="sheet-ratio" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Formato del proyecto</h3>
+      <div class="opt-grid" id="ratio-grid">
+        <button class="opt" data-ratio="9:16"><span class="opt-ico">▯</span>9:16</button>
+        <button class="opt" data-ratio="1:1"><span class="opt-ico">◻</span>1:1</button>
+        <button class="opt" data-ratio="16:9"><span class="opt-ico">▭</span>16:9</button>
+        <button class="opt" data-ratio="4:5"><span class="opt-ico">▯</span>4:5</button>
+        <button class="opt" data-ratio="3:4"><span class="opt-ico">▯</span>3:4</button>
+        <button class="opt" data-ratio="21:9"><span class="opt-ico">▭</span>21:9</button>
       </div>
       <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>
@@ -138,14 +247,19 @@
   <div id="sheet-text" class="sheet">
     <div class="sheet-inner">
       <div class="sheet-handle"></div>
-      <h3>Texto</h3>
+      <h3 id="text-title">Texto</h3>
       <textarea id="text-content" class="text-area" placeholder="Escribe algo..."></textarea>
-      <div class="sliders">
-        <label>Tamaño <output id="out-textsize">64</output>
-          <input id="text-size" type="range" min="20" max="160" value="64" /></label>
-        <label>Posición vertical <output id="out-texty">50%</output>
-          <input id="text-y" type="range" min="0" max="100" value="80" /></label>
+
+      <p class="sheet-sub" id="text-font-label">Fuente</p>
+      <div class="opt-chips" id="text-fonts">
+        <button class="chip" data-font="sans">Sans</button>
+        <button class="chip" data-font="display" style="font-family:Impact">Display</button>
+        <button class="chip" data-font="serif" style="font-family:Georgia">Serif</button>
+        <button class="chip" data-font="round">Round</button>
+        <button class="chip" data-font="mono" style="font-family:monospace">Mono</button>
       </div>
+
+      <p class="sheet-sub">Color</p>
       <div class="color-row" id="text-colors">
         <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
         <button class="swatch" style="background:#000000" data-color="#000000"></button>
@@ -154,6 +268,34 @@
         <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
         <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
         <button class="swatch" style="background:#b06bff" data-color="#b06bff"></button>
+      </div>
+
+      <p class="sheet-sub" id="text-bg-label">Fondo</p>
+      <div class="opt-chips" id="text-bg">
+        <button class="chip" data-bg="none">Ninguno</button>
+        <button class="chip" data-bg="black">Negro</button>
+        <button class="chip" data-bg="white">Blanco</button>
+        <button class="chip" data-bg="color">Color</button>
+      </div>
+
+      <p class="sheet-sub">Animación <span class="badge-pro">PRO</span></p>
+      <div class="opt-chips" id="text-anim">
+        <button class="chip" data-anim="none">Ninguna</button>
+        <button class="chip" data-anim="fade">Fundido</button>
+        <button class="chip" data-anim="pop">Pop</button>
+        <button class="chip" data-anim="slideup">Subir</button>
+        <button class="chip" data-anim="slidedown">Bajar</button>
+      </div>
+
+      <div class="sliders">
+        <label>Tamaño <output id="out-textsize">64</output>
+          <input id="text-size" type="range" min="20" max="240" value="64" /></label>
+        <label>Posición vertical <output id="out-texty">80%</output>
+          <input id="text-y" type="range" min="0" max="100" value="80" /></label>
+        <label>Posición horizontal <output id="out-textx">50%</output>
+          <input id="text-x" type="range" min="0" max="100" value="50" /></label>
+        <label>Rotación <output id="out-textrot">0°</output>
+          <input id="text-rot" type="range" min="-180" max="180" value="0" /></label>
       </div>
       <div class="sheet-buttons">
         <button class="ghost-btn" id="text-delete">Borrar</button>
@@ -168,10 +310,20 @@
       <div class="sheet-handle"></div>
       <h3>Exportar video</h3>
       <div id="export-config">
-        <div class="radio-group" id="export-quality">
-          <label><input type="radio" name="quality" value="720" /> 720p</label>
-          <label><input type="radio" name="quality" value="1080" checked /> 1080p</label>
+        <p class="sheet-sub">Resolución</p>
+        <div class="opt-grid" id="export-res">
+          <button class="opt" data-res="720">720p</button>
+          <button class="opt" data-res="1080">1080p</button>
+          <button class="opt" data-res="1440">2K</button>
+          <button class="opt" data-res="2160">4K <span class="badge-pro">PRO</span></button>
         </div>
+        <p class="sheet-sub">Fotogramas por segundo</p>
+        <div class="opt-grid" id="export-fps">
+          <button class="opt" data-fps="24">24</button>
+          <button class="opt" data-fps="30">30</button>
+          <button class="opt" data-fps="60">60</button>
+        </div>
+        <p class="export-meta" id="export-meta">1080 × 1920 · 30 fps</p>
         <p class="export-note">El video se genera en tu teléfono en tiempo real. Mantén la pantalla encendida.</p>
         <button class="primary-btn full" id="btn-start-export">Empezar exportación</button>
       </div>

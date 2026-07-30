@@ -14,19 +14,40 @@ cada usuario, de forma independiente y privada.
 
 ## ✨ Características
 
+**Edición**
 - 📱 **Interfaz estilo CapCut**, vertical y pensada para móvil (táctil).
-- 🎞️ **Línea de tiempo** con pistas de **video/fotos**, **audio** y **texto**.
+- 🎞️ **Línea de tiempo** con pistas de **video/fotos**, **audio** y **texto/stickers**.
 - ✂️ **Recortar** (trim), **dividir**, **duplicar**, **reordenar** y **borrar** clips.
-- 🅣 **Texto** superpuesto con tamaño, color y posición.
-- 🎛️ **Ajustes por clip**: volumen, brillo, contraste, saturación, opacidad.
-- 🎨 **Filtros**: Original, B/N, Cálido, Frío, Vívido, Vintage.
-- 🎵 **Música/audio** con volumen independiente y posición libre en el tiempo.
-- ▶️ **Vista previa en tiempo real** sobre `<canvas>`.
+- ↩️ **Deshacer / Rehacer** ilimitado dentro de la sesión.
+- 🖼️ **Formatos de proyecto**: 9:16, 1:1, 16:9, 4:5, 3:4 y 21:9.
+
+**Funciones Pro (como CapCut premium)**
+- 🔀 **Transiciones reales** entre clips (con solapamiento): fundido, a negro,
+  a blanco, deslizar (4 direcciones), zoom, barrido, desenfoque y giro — con
+  duración ajustable.
+- ⏱️ **Control de velocidad** por clip (0.25× a 4×), cámara lenta y rápida.
+- ✦ **Movimiento Ken Burns**: zoom in/out y paneo (Ken Burns) sobre fotos y videos.
+- 🎛️ **Transformación por clip**: escala, rotación, encuadre *Ajustar/Rellenar*
+  y **fondo difuminado** automático para las barras.
+- 🎨 **10 filtros**: Vívido, Cine, Cálido, Frío, Fade, Vintage, Noir, Neón, B/N…
+- 🅣 **Texto avanzado**: 5 fuentes, color, fondo (pastilla), y **animaciones**
+  de entrada/salida (fundido, pop, subir, bajar), posición y rotación.
+- 😀 **Stickers** (emojis) con tamaño, posición y rotación.
+- 🎵 **Audio** con volumen independiente, posición libre y **fade in / fade out**.
+- 🔊 **Crossfade de audio** automático durante las transiciones.
+
+**Exportar y guardar**
+- 📤 **Exportación hasta 4K** (720p / 1080p / 2K / 4K) a **24/30/60 fps**,
+  generada localmente en el dispositivo (canvas + Web Audio + MediaRecorder).
+- ▶️ **Vista previa en tiempo real** sobre `<canvas>` (mismo motor que la exportación).
 - 💾 **Guardado automático** de proyectos en el propio dispositivo.
-- 📤 **Exportación de video** generada localmente (MediaRecorder), lista para
-  descargar o compartir desde el teléfono.
 - 🔒 **Privacidad total**: nada sale del dispositivo. No hay servidor.
 - 📶 **PWA offline**: se puede **instalar** y usar **sin conexión**.
+
+> **Nota sobre 4K:** la exportación es en tiempo real. El 4K/60fps requiere un
+> teléfono con codificación H.264/HEVC por hardware (la mayoría de gama media-alta
+> actual). Si el dispositivo no puede con la resolución elegida, la app lo detecta
+> y sugiere bajar la calidad.
 
 ---
 

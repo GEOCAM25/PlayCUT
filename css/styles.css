@@ -251,6 +251,7 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 
 .kbd-only { display: none; }
 .only-chroma { display: none; }
+.only-overlay { display: none; }
 body.picking .sheet { opacity: .3; pointer-events: none; }
 body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; top: calc(12px + var(--safe-top)); left: 50%; transform: translateX(-50%); background: var(--grad); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(124,58,237,.5); }
 
@@ -267,8 +268,9 @@ body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; t
   .sheet-inner { border-radius: 22px 22px 0 0; }
 }
 
-/* PC / pantallas grandes: layout de escritorio con panel lateral */
-@media (min-width: 1024px) and (pointer: fine) {
+/* PC / pantallas grandes Y móvil en horizontal: layout con panel lateral */
+@media (min-width: 1024px) and (pointer: fine),
+       (orientation: landscape) and (max-height: 600px) and (min-width: 720px) {
   .kbd-only { display: block; }
   #screen-editor {
     max-width: 1600px; margin: 0 auto; width: 100%;
@@ -308,6 +310,30 @@ body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; t
   .transition-marker:hover { transform: translate(-50%, -50%) scale(1.15); }
   .project-list { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* Los atajos de teclado solo en dispositivos con teclado */
+@media (pointer: coarse) { .kbd-only { display: none !important; } }
+
+/* ---------- Pulido de botones ---------- */
+.primary-btn { position: relative; overflow: hidden; letter-spacing: .2px; }
+.primary-btn::after { content: ''; position: absolute; inset: 0 0 auto 0; height: 45%; background: linear-gradient(180deg, rgba(255,255,255,.22), transparent); pointer-events: none; }
+.primary-btn:active { transform: scale(.97); box-shadow: 0 3px 12px rgba(124,58,237,.4); }
+.icon-btn.mini { background: var(--bg-3); border: 1px solid var(--line); }
+.icon-btn.mini:active { background: var(--panel); transform: scale(.94); }
+.editor-topbar .icon-btn { transition: transform .08s, background .15s; }
+.icon-btn.play { box-shadow: 0 3px 12px rgba(0,0,0,.35); transition: transform .08s; }
+.icon-btn.play:active { transform: scale(.92); }
+.tool { transition: transform .08s, background .15s; }
+.tool:active { transform: scale(.94); }
+input[type="range"]::-webkit-slider-thumb { border: 2px solid var(--accent); box-shadow: 0 1px 5px rgba(0,0,0,.5); }
+input[type="range"]::-moz-range-thumb { border: 2px solid var(--accent); }
+.zoom-btn { transition: transform .08s; }
+.zoom-btn:active { transform: scale(.9); }
+.export-video { box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+
+/* Superficies con leve profundidad */
+.editor-topbar { box-shadow: 0 1px 0 rgba(255,255,255,.03) inset; }
+.toolbar, .clip-tools { box-shadow: 0 -1px 0 rgba(255,255,255,.03) inset; }
 
 /* Reduce animaciones si el usuario lo pide */
 @media (prefers-reduced-motion: reduce) {

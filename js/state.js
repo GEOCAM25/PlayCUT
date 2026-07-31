@@ -79,7 +79,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     speed: 1, motion: 'none',
     fillMode: 'contain',
     scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
-    radius: 0.04, shadow: true,
+    radius: 0.04, shadow: true, blend: 'normal',
     chroma: { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 },
   };
 }
@@ -142,6 +142,7 @@ export function normalizeProject(p) {
     c.brightness = c.brightness ?? 1; c.contrast = c.contrast ?? 1; c.saturation = c.saturation ?? 1;
     c.volume = c.volume ?? 1; c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
+    c.blend = c.blend || 'normal';
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
   }
   for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
@@ -266,6 +267,12 @@ export function clipFilterString(clip) {
     case 'fade': f += ' contrast(.85) brightness(1.1) saturate(.8)'; break;
     case 'noir': f += ' grayscale(1) contrast(1.3) brightness(.95)'; break;
     case 'neon': f += ' saturate(2) contrast(1.2) hue-rotate(-15deg)'; break;
+    case 'drama': f += ' contrast(1.35) saturate(.7) brightness(.95)'; break;
+    case 'sunset': f += ' sepia(.4) saturate(1.5) hue-rotate(-18deg) brightness(1.05)'; break;
+    case 'mint': f += ' saturate(1.2) hue-rotate(35deg) brightness(1.05)'; break;
+    case 'aqua': f += ' saturate(1.3) hue-rotate(60deg) contrast(1.05)'; break;
+    case 'rose': f += ' sepia(.25) saturate(1.4) hue-rotate(300deg) brightness(1.05)'; break;
+    case 'sharp': f += ' contrast(1.25) brightness(1.05) saturate(1.15)'; break;
   }
   return f;
 }

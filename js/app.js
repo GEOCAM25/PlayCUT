@@ -10,6 +10,7 @@ import { importFile, loadMediaRecord } from './media.js';
 import { Engine } from './engine.js';
 import { Timeline } from './timeline.js';
 import { exportProject, computeExportSize } from './exporter.js';
+import { mediaToMp3 } from './audioextract.js';
 import * as perf from './perf.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -264,6 +265,27 @@ async function handleOverlayFiles(files) {
   if (last) { timeline.select(last.id, 'overlay'); toast('Superposición añadida — muévela y ajústala'); }
 }
 
+// Importa audio. Si es un VIDEO, extrae su audio y lo convierte a MP3.
+async function handleAudioFiles(files) {
+  if (!files.length) return;
+  pushHistory();
+  for (const file of files) {
+    try {
+      let audioFile = file;
+      if (file.type.startsWith('video')) {
+        toast('Extrayendo audio y convirtiendo a MP3…');
+        const mp3 = await mediaToMp3(file, () => {});
+        const base = (file.name.replace(/\.[^.]+$/, '') || 'audio');
+        audioFile = new File([mp3], base + '.mp3', { type: 'audio/mpeg' });
+      }
+      const rec = await importFile(audioFile);
+      mediaNames.set(rec.id, rec.name);
+      project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: rec.duration || 5, start: engine.playhead, name: rec.name }));
+    } catch (e) { console.error(e); toast('No se pudo procesar el audio: ' + (e.message || '')); }
+  }
+  refresh(); pushHistory(); toast('¡Audio añadido!');
+}
+
 // ==================================================================
 //  BARRAS
 // ==================================================================
@@ -488,6 +510,9 @@ function openAdjustSheet(clip, track) {
   setActive('#motion-row', 'motion', clip.motion || 'none');
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
   $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', clip.bg === b.dataset.bg));
+  // Mezcla: solo para superposiciones.
+  $$('.only-overlay').forEach(l => l.style.display = track === 'overlay' ? (l.classList.contains('opt-chips') ? 'flex' : 'block') : 'none');
+  setActive('#blend-row', 'blend', clip.blend || 'normal');
   updateAdjustOutputs();
   updateChromaUI();
   openSheet('sheet-adjust');
@@ -501,7 +526,7 @@ function updateChromaUI() {
   $('#adj-csm').value = Math.round((c?.chroma?.smooth ?? 0.12) * 100);
   $('#out-csim').textContent = $('#adj-csim').value + '%';
   $('#out-csm').textContent = $('#adj-csm').value + '%';
-  $$('.only-chroma').forEach(l => l.style.display = on ? '' : 'none');
+  $$('.only-chroma').forEach(l => l.style.display = on ? 'block' : 'none');
 }
 function invalidateChroma(clip) { engine._chromaCache.delete(clip.id); }
 
@@ -546,6 +571,11 @@ function bindAdjust() {
   $('#motion-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-motion]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.motion = b.dataset.motion; setActive('#motion-row', 'motion', b.dataset.motion);
+    engine.render(engine.playhead); scheduleSave();
+  });
+  $('#blend-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-blend]'); if (!b || !adjustTarget) return;
+    adjustTarget.clip.blend = b.dataset.blend; setActive('#blend-row', 'blend', b.dataset.blend);
     engine.render(engine.playhead); scheduleSave();
   });
   $('#fill-row').addEventListener('click', (e) => {
@@ -651,6 +681,23 @@ function bindAudioClip() {
     for (const c of [...project.tracks.video, ...project.tracks.overlay, ...project.tracks.audio]) c.volume = v;
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); scheduleSave();
     toast('Volumen aplicado a todos los clips');
+  });
+  $('#btn-save-mp3').addEventListener('click', async () => {
+    if (!audioTarget) return;
+    const btn = $('#btn-save-mp3');
+    try {
+      btn.style.opacity = '.5'; toast('Convirtiendo a MP3…');
+      const rec = await loadMediaRecord(audioTarget.mediaId);
+      if (!rec) { toast('No hay medio que convertir'); return; }
+      const mp3 = await mediaToMp3(rec.blob, () => {});
+      const url = URL.createObjectURL(mp3);
+      const a = document.createElement('a');
+      a.href = url; a.download = (rec.name || 'audio').replace(/\.[^.]+$/, '') + '.mp3';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      haptic(15); toast('MP3 guardado en tu dispositivo');
+    } catch (e) { console.error(e); toast('No se pudo convertir: ' + (e.message || '')); }
+    finally { btn.style.opacity = ''; }
   });
 }
 
@@ -901,7 +948,7 @@ function bindGlobal() {
 
   els.fileMedia.addEventListener('change', (e) => { handleMediaFiles([...e.target.files]); e.target.value = ''; });
   els.fileOverlay.addEventListener('change', (e) => { handleOverlayFiles([...e.target.files]); e.target.value = ''; });
-  els.fileAudio.addEventListener('change', (e) => { handleMediaFiles([...e.target.files]); e.target.value = ''; });
+  els.fileAudio.addEventListener('change', (e) => { handleAudioFiles([...e.target.files]); e.target.value = ''; });
   els.btnSettings.addEventListener('click', openSettings);
   els.btnZoomIn.addEventListener('click', () => zoomBy(1.4));
   els.btnZoomOut.addEventListener('click', () => zoomBy(1 / 1.4));

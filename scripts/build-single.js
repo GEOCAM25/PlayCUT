@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..');
 const R = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 // Orden de dependencias.
-const order = ['js/state.js', 'js/db.js', 'js/media.js', 'js/perf.js', 'js/engine.js', 'js/exporter.js', 'js/timeline.js', 'js/app.js'];
+const order = ['js/state.js', 'js/db.js', 'js/media.js', 'js/perf.js', 'js/audioextract.js', 'js/engine.js', 'js/exporter.js', 'js/timeline.js', 'js/app.js'];
 
 function strip(src) {
   // Quita imports (incluye multilínea).
@@ -49,14 +49,18 @@ const css = R('css/styles.css');
 const iconB64 = fs.readFileSync(path.join(root, 'icons/icon-192.png')).toString('base64');
 const iconData = `data:image/png;base64,${iconB64}`;
 
+// Codificador MP3 (script clásico, define window.lamejs).
+const lame = R('js/vendor/lame.min.js');
+
 // Extrae el contenido del <body> de index.html.
 const html = R('index.html');
 let body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'));
-// Quita el <script type="module"> y usa el icono incrustado.
+// Quita los <script src> (se incrustan) y usa el icono incrustado.
+body = body.replace(/<script[^>]*src="js\/vendor\/lame\.min\.js"[^>]*><\/script>/, '');
 body = body.replace(/<script[^>]*src="js\/app\.js"[^>]*><\/script>/, '');
 body = body.split('icons/icon-192.png').join(iconData);
 
-const content = `<style>\n${css}\n</style>\n${body}\n<script>\n${bundle}\n</script>\n`;
+const content = `<style>\n${css}\n</style>\n${body}\n<script>\n${lame}\n</script>\n<script>\n${bundle}\n</script>\n`;
 
 // Versión "contenido" para el Artifact (sin head/body).
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });

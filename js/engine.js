@@ -146,10 +146,16 @@ export class Engine {
       else this.drawClip(vs.a, vs.localA, {});
     }
 
-    // Capa superpuesta (PiP), encima del video principal.
+    // Capa superpuesta (PiP), encima del video principal, con modo de mezcla.
+    const BLEND = { normal: 'source-over', screen: 'screen', multiply: 'multiply', add: 'lighter', overlay: 'overlay', difference: 'difference' };
     for (const ov of (this.project.tracks.overlay || [])) {
       const d = overlayDuration(ov);
-      if (t >= ov.start && t < ov.start + d) this.drawClip(ov, t - ov.start, { isOverlay: true });
+      if (t >= ov.start && t < ov.start + d) {
+        const prevOp = ctx.globalCompositeOperation;
+        ctx.globalCompositeOperation = BLEND[ov.blend] || 'source-over';
+        this.drawClip(ov, t - ov.start, { isOverlay: true });
+        ctx.globalCompositeOperation = prevOp;
+      }
     }
 
     for (const tc of this.project.tracks.text) {
@@ -230,8 +236,9 @@ export class Engine {
     const rot = ((clip.rotate || 0) + (extra.rotate || 0)) * Math.PI / 180;
 
     const chromaOn = !!(clip.chroma && clip.chroma.on);
+    const blended = extra.isOverlay && clip.blend && clip.blend !== 'normal';
     this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot,
-      extra.isOverlay ? { radius: chromaOn ? 0 : clip.radius, shadow: clip.shadow && !chromaOn } : null);
+      extra.isOverlay ? { radius: chromaOn ? 0 : clip.radius, shadow: clip.shadow && !chromaOn && !blended } : null);
     this.ctx.restore();
   }
 

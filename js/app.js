@@ -85,6 +85,30 @@ function updateTimeUI(t) {
 }
 function updateEmptyState() { els.previewEmpty.hidden = project.tracks.video.length !== 0; }
 
+// Ajusta la altura de la vista previa al formato del proyecto: para videos
+// anchos (16:9) la encoge para que suba la línea de tiempo y no queden huecos.
+function fitPreview() {
+  const wrap = document.querySelector('.preview-wrap');
+  const tl = document.querySelector('.timeline-area');
+  if (!project || !wrap) return;
+  if (getComputedStyle(screens.editor).display === 'grid') { wrap.style.flex = ''; wrap.style.height = ''; if (tl) tl.style.flex = ''; return; }
+  if (screens.editor.classList.contains('sheet-open')) return; // el CSS manda
+  const aspect = project.width / project.height;
+  if (aspect >= 1.05) {
+    // Video ancho (16:9…): encoge el video y deja crecer la línea de tiempo
+    // (solo uno crece a la vez para no romper el layout).
+    const w = wrap.clientWidth || window.innerWidth;
+    wrap.style.flex = '0 0 auto';
+    wrap.style.height = Math.round(w / aspect) + 'px';
+    if (tl) tl.style.flex = '1 1 auto';
+  } else {
+    wrap.style.flex = '1 1 auto';
+    wrap.style.height = '';
+    if (tl) tl.style.flex = '';
+  }
+  engine.render(engine.playhead);
+}
+
 // ---------- Historial ----------
 function pushHistory() {
   if (!project) return;
@@ -212,6 +236,7 @@ async function openProject(id) {
   engine.seek(0); timeline.setPlayhead(0);
   resetHistory();
   showScreen('editor');
+  fitPreview();
   showTipsOnce();
 }
 
@@ -298,6 +323,7 @@ function bindToolbar() {
       case 'add-audio': els.fileAudio.click(); break;
       case 'add-text': addTextAtPlayhead(false); break;
       case 'add-sticker': addTextAtPlayhead(true); break;
+      case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
       case 'split': splitAtPlayhead(); break;
     }
@@ -425,8 +451,17 @@ function onClipSelected(clip) {
 // ==================================================================
 //  HOJAS
 // ==================================================================
-function openSheet(id) { els.backdrop.classList.add('show'); $('#' + id).classList.add('show'); }
-function closeSheets() { els.backdrop.classList.remove('show'); $$('.sheet').forEach(s => { s.classList.remove('show'); s.style.transform = ''; }); }
+function openSheet(id) {
+  els.backdrop.classList.add('show'); $('#' + id).classList.add('show');
+  screens.editor.classList.add('sheet-open');
+  engine.render(engine.playhead); // reajusta el fotograma al nuevo tamaño
+}
+function closeSheets() {
+  els.backdrop.classList.remove('show');
+  $$('.sheet').forEach(s => { s.classList.remove('show'); s.style.transform = ''; });
+  screens.editor.classList.remove('sheet-open');
+  fitPreview();
+}
 
 // Añade un botón ✕ (siempre visible) a cada hoja y cierra el teclado al tocar
 // fuera de un campo de texto.
@@ -509,7 +544,7 @@ function openAdjustSheet(clip, track) {
   setActive('#filters-row', 'filter', clip.filter || 'none');
   setActive('#motion-row', 'motion', clip.motion || 'none');
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
-  $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', clip.bg === b.dataset.bg));
+  updateFillUI(clip);
   // Mezcla: solo para superposiciones.
   $$('.only-overlay').forEach(l => l.style.display = track === 'overlay' ? (l.classList.contains('opt-chips') ? 'flex' : 'block') : 'none');
   setActive('#blend-row', 'blend', clip.blend || 'normal');
@@ -529,6 +564,13 @@ function updateChromaUI() {
   $$('.only-chroma').forEach(l => l.style.display = on ? 'block' : 'none');
 }
 function invalidateChroma(clip) { engine._chromaCache.delete(clip.id); }
+
+function updateFillUI(clip) {
+  const isColor = clip.bg && clip.bg !== 'blur' && clip.bg !== 'none';
+  $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', b.dataset.bg === 'blur' ? clip.bg === 'blur' : isColor));
+  $('#fill-colors').style.display = isColor ? 'flex' : 'none';
+  $$('#fill-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === clip.bg));
+}
 
 function updateAdjustOutputs() {
   $('#out-volume').textContent = $('#adj-volume').value + '%';
@@ -582,8 +624,19 @@ function bindAdjust() {
     const fillBtn = e.target.closest('[data-fill]');
     const bgBtn = e.target.closest('[data-bg]');
     if (!adjustTarget) return;
-    if (fillBtn) { adjustTarget.clip.fillMode = fillBtn.dataset.fill; setActive('#fill-row', 'fill', fillBtn.dataset.fill); }
-    if (bgBtn) { adjustTarget.clip.bg = adjustTarget.clip.bg === bgBtn.dataset.bg ? 'black' : bgBtn.dataset.bg; $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', adjustTarget.clip.bg === b.dataset.bg)); }
+    const c = adjustTarget.clip;
+    if (fillBtn) { c.fillMode = fillBtn.dataset.fill; setActive('#fill-row', 'fill', fillBtn.dataset.fill); }
+    if (bgBtn) {
+      if (bgBtn.dataset.bg === 'blur') c.bg = 'blur';
+      else if (!c.bg || c.bg === 'blur') c.bg = '#101018';
+      updateFillUI(c);
+    }
+    engine.render(engine.playhead); scheduleSave();
+  });
+  $('#fill-colors').addEventListener('click', (e) => {
+    const s = e.target.closest('.swatch'); if (!s || !adjustTarget) return;
+    adjustTarget.clip.bg = s.dataset.color;
+    updateFillUI(adjustTarget.clip);
     engine.render(engine.playhead); scheduleSave();
   });
 
@@ -766,7 +819,7 @@ function bindRatio() {
     const r = b.dataset.ratio; const [w, h] = RATIOS[r];
     project.ratio = r; project.width = w; project.height = h;
     setActive('#ratio-grid', 'ratio', r);
-    engine.applyRatio(); refresh();
+    engine.applyRatio(); fitPreview(); refresh();
   });
 }
 
@@ -929,6 +982,149 @@ function bindExport() {
 function sanitize(name) { return String(name).replace(/[^\w\-]+/g, '_').slice(0, 40) || 'playcut'; }
 
 // ==================================================================
+//  GIFs (de internet, junto a los stickers)
+// ==================================================================
+function openGifSheet() {
+  $('#gif-key').value = localStorage.getItem('playcut.giphyKey') || '';
+  openSheet('sheet-gif');
+  if (localStorage.getItem('playcut.giphyKey')) gifSearch('');
+  else $('#gif-results').innerHTML = '<p class="export-meta">Pega un enlace de GIF arriba, o pon tu clave de GIPHY para buscar aquí.</p>';
+}
+let gifTimer = null;
+function bindGif() {
+  $('#gif-add-url').addEventListener('click', () => addGifFromUrl($('#gif-url').value.trim()));
+  $('#gif-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') addGifFromUrl($('#gif-url').value.trim()); });
+  $('#gif-key').addEventListener('input', () => {
+    const k = $('#gif-key').value.trim();
+    if (k) localStorage.setItem('playcut.giphyKey', k); else localStorage.removeItem('playcut.giphyKey');
+  });
+  $('#gif-search').addEventListener('input', () => {
+    clearTimeout(gifTimer);
+    gifTimer = setTimeout(() => gifSearch($('#gif-search').value.trim()), 350);
+  });
+}
+async function gifSearch(q) {
+  const box = $('#gif-results');
+  const key = (localStorage.getItem('playcut.giphyKey') || '').trim();
+  if (!key) { box.innerHTML = '<p class="export-meta">Para buscar necesitas una clave gratis de GIPHY (developers.giphy.com). Mientras, pega el enlace de un GIF arriba.</p>'; return; }
+  box.innerHTML = '<p class="export-meta">Buscando…</p>';
+  try {
+    const url = q
+      ? `https://api.giphy.com/v1/gifs/search?q=${encodeURIComponent(q)}&limit=24&rating=pg&api_key=${key}`
+      : `https://api.giphy.com/v1/gifs/trending?limit=24&rating=pg&api_key=${key}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j.meta && j.meta.status >= 400) { box.innerHTML = '<p class="export-meta">Clave no válida. Revisa tu clave de GIPHY.</p>'; return; }
+    box.innerHTML = '';
+    if (!j.data || !j.data.length) { box.innerHTML = '<p class="export-meta">Sin resultados</p>'; return; }
+    for (const g of j.data) {
+      const img = document.createElement('img');
+      img.className = 'gif-item'; img.loading = 'lazy';
+      img.src = (g.images.fixed_width_small || g.images.fixed_width).url;
+      const full = (g.images.fixed_width || g.images.downsized).url;
+      img.addEventListener('click', () => addGifFromUrl(full, g.title));
+      box.appendChild(img);
+    }
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<p class="export-meta">No se pudo buscar. Revisa tu conexión o pega un enlace de GIF arriba.</p>';
+  }
+}
+async function addGifFromUrl(url, title) {
+  if (!url || !/^https?:\/\//i.test(url)) { toast('Pega un enlace válido (que empiece por http)'); return; }
+  try {
+    toast('Añadiendo GIF…');
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    if (!/gif|image/.test(blob.type)) throw new Error('El enlace no es una imagen/GIF');
+    const file = new File([blob], (sanitize(title || 'gif')) + '.gif', { type: blob.type.includes('gif') ? 'image/gif' : (blob.type || 'image/gif') });
+    pushHistory();
+    const rec = await importFile(file);
+    if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
+    mediaNames.set(rec.id, rec.name);
+    const clip = createOverlayClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height, start: engine.playhead });
+    clip.scale = 0.5; clip.offsetX = 0; clip.offsetY = 0; clip.bg = 'none'; clip.shadow = false; clip.radius = 0;
+    project.tracks.overlay.push(clip);
+    $('#gif-url').value = '';
+    refresh(); pushHistory(); closeSheets();
+    timeline.select(clip.id, 'overlay');
+    haptic(12); toast('GIF añadido — arrástralo y cámbialo de tamaño con 2 dedos');
+  } catch (e) { console.error(e); toast('No se pudo añadir el GIF: ' + (e.message || '')); }
+}
+
+// ==================================================================
+//  GESTOS EN LA VISTA PREVIA (pellizcar / arrastrar el clip)
+// ==================================================================
+function gestureTarget() {
+  const sel = getSelectedClip();
+  if (sel && ['video', 'overlay', 'text'].includes(sel.track)) return sel;
+  const at = videoClipAt(project.tracks.video, engine.playhead);
+  return at ? { clip: at.clip, track: 'video' } : null;
+}
+function bindPreviewGestures() {
+  const wrap = $('.preview-wrap');
+  const canvas = els.canvas;
+  const pointers = new Map();
+  let g = null;
+  wrap.addEventListener('pointerdown', (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (chromaPickMode) return;
+    if (pointers.size === 1) {
+      const t = gestureTarget();
+      g = { mode: 'maybe', t, sx: e.clientX, sy: e.clientY, moved: false,
+        oScale: t ? (t.clip.scale ?? 1) : 1, oSize: t ? (t.clip.size ?? 64) : 64,
+        oX: t ? (t.track === 'text' ? (t.clip.x ?? 0.5) : (t.clip.offsetX ?? 0)) : 0,
+        oY: t ? (t.track === 'text' ? (t.clip.y ?? 0.8) : (t.clip.offsetY ?? 0)) : 0 };
+    } else if (pointers.size === 2) {
+      const t = gestureTarget();
+      if (t) {
+        const p = [...pointers.values()];
+        g = { mode: 'pinch', t, startDist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), oScale: t.clip.scale ?? 1, oSize: t.clip.size ?? 64 };
+        pushHistory();
+      }
+    }
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId) || !g) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const rect = canvas.getBoundingClientRect();
+    if (g.mode === 'pinch' && pointers.size >= 2) {
+      const p = [...pointers.values()];
+      const ratio = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / (g.startDist || 1);
+      if (g.t.track === 'text') g.t.clip.size = Math.max(12, Math.min(400, g.oSize * ratio));
+      else g.t.clip.scale = Math.max(0.1, Math.min(6, g.oScale * ratio));
+      engine.render(engine.playhead);
+    } else if (g.mode === 'maybe' || g.mode === 'drag') {
+      const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      if (!g.moved && Math.hypot(dx, dy) > 6) { g.moved = true; g.mode = 'drag'; if (g.t) pushHistory(); }
+      if (g.mode === 'drag' && g.t) {
+        const fx = dx / rect.width, fy = dy / rect.height;
+        if (g.t.track === 'text') { g.t.clip.x = Math.max(0, Math.min(1, g.oX + fx)); g.t.clip.y = Math.max(0, Math.min(1, g.oY + fy)); }
+        else { g.t.clip.offsetX = g.oX + fx; g.t.clip.offsetY = g.oY + fy; }
+        engine.render(engine.playhead);
+      }
+    }
+  });
+  const end = (e) => {
+    pointers.delete(e.pointerId);
+    if (chromaPickMode) { pickChromaColor(e); if (pointers.size === 0) g = null; return; }
+    if (!g) return;
+    if ((g.mode === 'pinch' || g.mode === 'drag')) {
+      scheduleSave(); timeline.render(); pushHistory();
+      if (pointers.size === 0) g = null;
+    } else if (g.mode === 'maybe' && !g.moved && pointers.size === 0) {
+      // Toque simple: importar (si vacío) o reproducir.
+      if (project.tracks.video.length === 0 && project.tracks.overlay.length === 0) els.fileMedia.click();
+      else togglePlay();
+      g = null;
+    } else if (pointers.size === 0) g = null;
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+}
+
+// ==================================================================
 //  EVENTOS GLOBALES
 // ==================================================================
 function bindGlobal() {
@@ -953,18 +1149,15 @@ function bindGlobal() {
   els.btnZoomIn.addEventListener('click', () => zoomBy(1.4));
   els.btnZoomOut.addEventListener('click', () => zoomBy(1 / 1.4));
   document.addEventListener('keydown', onKey);
-  window.addEventListener('resize', () => { if (project) { timeline.render(); timeline.setPlayhead(engine.playhead); } });
+  window.addEventListener('resize', () => { if (project) { fitPreview(); timeline.render(); timeline.setPlayhead(engine.playhead); } });
+  window.addEventListener('orientationchange', () => { setTimeout(() => { if (project) { fitPreview(); timeline.render(); timeline.setPlayhead(engine.playhead); } }, 250); });
 
   $('#timeline-scroll').addEventListener('click', (e) => {
     if (e.target.classList.contains('track') || e.target.classList.contains('timeline')) { timeline.clearSelection(); }
   });
 
-  // Tocar la vista previa: cuentagotas > importar (si vacía) > play/pausa.
-  $('.preview-wrap').addEventListener('click', (e) => {
-    if (chromaPickMode) { pickChromaColor(e); return; }
-    if (project.tracks.video.length === 0 && project.tracks.overlay.length === 0) els.fileMedia.click();
-    else togglePlay();
-  });
+  // La vista previa se maneja con gestos (bindPreviewGestures): toque para
+  // reproducir/importar, arrastrar para mover, 2 dedos para escalar.
 
   els.backdrop.addEventListener('click', () => { closeSheets(); pushHistory(); });
   $$('[data-close-sheet]').forEach(b => b.addEventListener('click', () => { closeSheets(); pushHistory(); }));
@@ -994,6 +1187,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
+  bindGif(); bindPreviewGestures();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

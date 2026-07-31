@@ -85,8 +85,10 @@ input, textarea { font-family: inherit; }
 .save-row { background: var(--bg-2); text-align: center; padding: 0 0 4px; }
 .save-status { font-size: 10px; color: var(--text-dim); }
 
-.preview-wrap { flex: 1; min-height: 0; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-#preview { max-width: 100%; max-height: 100%; object-fit: contain; background: #000; }
+.preview-wrap { flex: 1 1 auto; min-height: 0; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; touch-action: none; transition: height .2s ease; }
+#preview { max-width: 100%; max-height: 100%; object-fit: contain; background: #000; display: block; }
+/* Al abrir un panel, el video se encoge arriba para seguir viéndose. */
+#screen-editor.sheet-open .preview-wrap { flex: 0 0 auto !important; height: 30vh !important; }
 .preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 14px; pointer-events: none; }
 .empty-cta { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
 .empty-plus { width: 68px; height: 68px; border-radius: 50%; background: var(--grad); color: #fff; font-size: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 26px rgba(124,58,237,.45); }
@@ -167,10 +169,10 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
   transform: translateY(105%); transition: transform .3s cubic-bezier(.25,.8,.3,1);
-  max-height: 88vh;
+  max-height: 64vh;
 }
 .sheet.show { transform: translateY(0); }
-.sheet-inner { background: var(--bg-2); border-radius: 22px 22px 0 0; padding: 8px 20px calc(24px + var(--safe-bottom)); max-height: 88vh; overflow-y: auto; border-top: 1px solid var(--line); }
+.sheet-inner { background: var(--bg-2); border-radius: 22px 22px 0 0; padding: 8px 20px calc(24px + var(--safe-bottom)); max-height: 64vh; overflow-y: auto; border-top: 1px solid var(--line); }
 .sheet-handle { width: 40px; height: 4px; background: var(--line); border-radius: 4px; margin: 6px auto 14px; }
 .sheet-inner h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; padding-right: 44px; }
 .sheet-close {
@@ -252,6 +254,12 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 .kbd-only { display: none; }
 .only-chroma { display: none; }
 .only-overlay { display: none; }
+
+/* ---------- GIFs ---------- */
+.gif-input { width: 100%; height: 46px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 12px; color: var(--text); padding: 0 14px; font-size: 15px; margin-bottom: 6px; }
+.gif-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; overflow-y: auto; max-height: 40vh; padding: 4px 0 14px; }
+.gif-item { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--bg-3); cursor: pointer; transition: transform .08s; }
+.gif-item:active { transform: scale(.94); }
 body.picking .sheet { opacity: .3; pointer-events: none; }
 body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; top: calc(12px + var(--safe-top)); left: 50%; transform: translateX(-50%); background: var(--grad); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(124,58,237,.5); }
 
@@ -268,9 +276,8 @@ body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; t
   .sheet-inner { border-radius: 22px 22px 0 0; }
 }
 
-/* PC / pantallas grandes Y móvil en horizontal: layout con panel lateral */
-@media (min-width: 1024px) and (pointer: fine),
-       (orientation: landscape) and (max-height: 600px) and (min-width: 720px) {
+/* PC / pantallas grandes: layout de escritorio con panel lateral */
+@media (min-width: 1024px) and (pointer: fine) {
   .kbd-only { display: block; }
   #screen-editor {
     max-width: 1600px; margin: 0 auto; width: 100%;
@@ -286,7 +293,8 @@ body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; t
   }
   .editor-topbar { grid-area: topbar; }
   .save-row { grid-area: save; }
-  .preview-wrap { grid-area: preview; }
+  .preview-wrap { grid-area: preview; flex: initial !important; height: auto !important; }
+  #screen-editor.sheet-open .preview-wrap { flex: initial !important; height: auto !important; }
   .transport { grid-area: preview; align-self: end; background: transparent; position: relative; z-index: 5; }
   .timeline-area { grid-area: timeline; border-top: 1px solid var(--line); }
   /* Panel derecho de herramientas */
@@ -309,6 +317,39 @@ body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; t
   .sheet-handle { display: none; }
   .transition-marker:hover { transform: translate(-50%, -50%) scale(1.15); }
   .project-list { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Móvil/tablet en HORIZONTAL: video grande a la izquierda; herramientas y
+   línea de tiempo apiladas a la derecha. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #screen-editor {
+    display: grid; height: 100vh; height: 100dvh;
+    grid-template-columns: 1fr minmax(280px, 42%);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "topbar   topbar"
+      "preview  tools"
+      "preview  timeline";
+  }
+  .editor-topbar { grid-area: topbar; padding-top: calc(6px + var(--safe-top)); }
+  .save-row { display: none; }
+  .preview-wrap { grid-area: preview; flex: initial !important; height: auto !important; background: #000; }
+  #screen-editor.sheet-open .preview-wrap { flex: initial !important; height: auto !important; }
+  .transport { grid-area: preview; align-self: end; position: relative; z-index: 5; background: linear-gradient(transparent, rgba(0,0,0,.55)); }
+  .toolbar, .clip-tools {
+    grid-area: tools; flex-direction: row; align-items: center; justify-content: flex-start;
+    overflow-x: auto; overflow-y: hidden; border: none; border-left: 1px solid var(--line);
+    border-bottom: 1px solid var(--line); padding: 6px 8px;
+  }
+  .toolbar .tool, .clip-tools .tool { min-width: 62px; }
+  .timeline-area { grid-area: timeline; border-left: 1px solid var(--line); min-height: 0; overflow: hidden; }
+  .timeline { min-height: 120px; }
+  .track-video { height: 44px; } .track { height: 38px; }
+  /* Hojas como diálogos centrados para no tapar el video */
+  .sheet { top: 50%; bottom: auto; left: 50%; transform: translate(-50%, -46%) scale(.98); width: 460px; max-width: 92vw; max-height: 92vh; opacity: 0; transition: transform .2s, opacity .2s; }
+  .sheet.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .sheet-inner { border-radius: 20px; border: 1px solid var(--line); max-height: 92vh; }
+  .sheet-handle { display: none; }
 }
 
 /* Los atajos de teclado solo en dispositivos con teclado */

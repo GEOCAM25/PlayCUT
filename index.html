@@ -99,6 +99,7 @@
       <button class="tool" data-action="add-overlay"><i>🖼️</i><span>Superponer</span></button>
       <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
       <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
+      <button class="tool" data-action="add-gif"><i>🎞️</i><span>GIF</span></button>
       <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
       <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
       <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
@@ -171,11 +172,22 @@
           <button class="chip" data-motion="panD">Pan ↓</button>
         </div>
 
-        <p class="sheet-sub">Encuadre</p>
+        <p class="sheet-sub">Encuadre y relleno de fondo</p>
         <div class="opt-grid" id="fill-row">
           <button class="opt" data-fill="contain"><span class="opt-ico">▭</span>Ajustar</button>
           <button class="opt" data-fill="cover"><span class="opt-ico">⬛</span>Rellenar</button>
           <button class="opt" data-bg="blur"><span class="opt-ico">🌫️</span>Fondo blur</button>
+          <button class="opt" data-bg="color"><span class="opt-ico">🎨</span>Fondo color</button>
+        </div>
+        <div class="color-row" id="fill-colors">
+          <button class="swatch" style="background:#000000" data-color="#000000"></button>
+          <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+          <button class="swatch" style="background:#101018" data-color="#101018"></button>
+          <button class="swatch" style="background:#ff3b6b" data-color="#ff3b6b"></button>
+          <button class="swatch" style="background:#ffd23b" data-color="#ffd23b"></button>
+          <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
+          <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
+          <button class="swatch" style="background:#7c3aed" data-color="#7c3aed"></button>
         </div>
 
         <p class="sheet-sub">Pantalla verde (chroma) <span class="badge-pro">PRO</span></p>
@@ -381,6 +393,25 @@
         <button class="ghost-btn" id="text-delete">Borrar</button>
         <button class="primary-btn" data-close-sheet>Listo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: GIFs ===================== -->
+  <div id="sheet-gif" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>GIF de internet</h3>
+      <input id="gif-url" class="gif-input" placeholder="Pega el enlace de un GIF (.gif)…" />
+      <button class="primary-btn full" id="gif-add-url">Añadir este GIF</button>
+      <p class="export-meta">¿No tienes el enlace? Abre
+        <a href="https://giphy.com" target="_blank" rel="noopener">GIPHY</a> o
+        <a href="https://tenor.com" target="_blank" rel="noopener">Tenor</a>,
+        mantén pulsado un GIF, «Copiar enlace» y pégalo arriba.</p>
+      <p class="sheet-sub">Buscar aquí <span class="badge-pro">opcional</span></p>
+      <input id="gif-key" class="gif-input" placeholder="Pega tu clave gratis de GIPHY para buscar" />
+      <input id="gif-search" class="gif-input" placeholder="Buscar: gato, fuego, ok…" />
+      <div id="gif-results" class="gif-grid"></div>
+      <button class="ghost-btn full" data-close-sheet>Cerrar</button>
     </div>
   </div>
 

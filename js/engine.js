@@ -5,7 +5,7 @@
 import {
   projectDuration, videoStateAt, clipDuration, clipFilterString, FONTS, overlayDuration,
 } from './state.js';
-import { blobURLFor, connectElement, setClipGain, getAudioContext } from './media.js';
+import { blobURLFor, connectElement, setClipGain, getAudioContext, loadMediaRecord } from './media.js';
 import { getProfile } from './perf.js';
 
 export class Engine {
@@ -75,6 +75,7 @@ export class Engine {
       if (!needed.has(id)) {
         const rec = this.elements.get(id);
         if (rec && rec.el) { try { rec.el.pause(); rec.el.src = ''; } catch {} }
+        if (rec && rec.img && rec.img.parentNode) rec.img.remove();
         this.elements.delete(id);
       }
     }
@@ -116,7 +117,7 @@ export class Engine {
 
   async ensureImage(clip) {
     if (this.elements.has(clip.id)) return;
-    const rec = { type: 'image', img: null, ready: false };
+    const rec = { type: 'image', img: null, ready: false, gif: false };
     this.elements.set(clip.id, rec);
     const url = await blobURLFor(clip.mediaId);
     if (!url) { this.elements.delete(clip.id); return; }
@@ -124,6 +125,13 @@ export class Engine {
     img.onload = () => { rec.ready = true; if (!this.playing) this.render(this.playhead); };
     img.src = url;
     rec.img = img;
+    // Los GIF animados deben estar en el árbol de render para reproducirse.
+    const media = await loadMediaRecord(clip.mediaId);
+    if (media && media.mime === 'image/gif') {
+      rec.gif = true;
+      img.style.cssText = 'position:fixed;left:-99999px;top:0;width:64px;height:64px;opacity:0;pointer-events:none;';
+      document.body.appendChild(img);
+    }
   }
 
   _vol(clip) { return clip.muted ? 0 : (clip.volume ?? 1); }
@@ -209,12 +217,18 @@ export class Engine {
     const W = this.canvas.width, H = this.canvas.height;
     const useCover = clip.fillMode === 'cover' || m.cover;
 
-    // Fondo difuminado si hay barras (modo contain) — solo para el clip base.
-    if (!extra.isOverlay && !useCover && clip.bg === 'blur' && !(clip.chroma && clip.chroma.on)) {
-      this.ctx.save();
-      this.ctx.filter = 'blur(28px) brightness(.6)';
-      this._drawFit(src, sw, sh, true, 1.15, 0, 0, 0);
-      this.ctx.restore();
+    // Relleno de las barras (modo contain) — solo para el clip base.
+    if (!extra.isOverlay && !useCover && !(clip.chroma && clip.chroma.on)) {
+      if (clip.bg === 'blur') {
+        this.ctx.save();
+        this.ctx.filter = 'blur(28px) brightness(.6)';
+        this._drawFit(src, sw, sh, true, 1.15, 0, 0, 0);
+        this.ctx.restore();
+      } else if (clip.bg && clip.bg !== 'none') {
+        const col = clip.bg === 'black' ? '#000' : clip.bg === 'white' ? '#fff'
+          : (clip.bg[0] === '#' ? clip.bg : (this.project.bgColor || '#000'));
+        this.ctx.save(); this.ctx.fillStyle = col; this.ctx.fillRect(0, 0, W, H); this.ctx.restore();
+      }
     }
 
     this.ctx.save();

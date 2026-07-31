@@ -96,7 +96,7 @@
     <!-- Barra de herramientas principal -->
     <nav class="toolbar" id="toolbar-main">
       <button class="tool" data-action="add-media"><i>🎬</i><span>Añadir</span></button>
-      <button class="tool" data-action="add-overlay"><i>🖼️</i><span>PiP</span></button>
+      <button class="tool" data-action="add-overlay"><i>🖼️</i><span>Superponer</span></button>
       <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
       <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
       <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
@@ -300,9 +300,18 @@
       <p class="sheet-sub" id="text-font-label">Fuente</p>
       <div class="opt-chips" id="text-fonts">
         <button class="chip" data-font="sans">Sans</button>
-        <button class="chip" data-font="display" style="font-family:Impact">Display</button>
-        <button class="chip" data-font="serif" style="font-family:Georgia">Serif</button>
-        <button class="chip" data-font="round">Round</button>
+        <button class="chip" data-font="display" style="font-family:Impact,'Arial Black',sans-serif">Display</button>
+        <button class="chip" data-font="serif" style="font-family:Georgia,serif">Serif</button>
+        <button class="chip" data-font="round" style="font-family:'Trebuchet MS',sans-serif">Round</button>
+        <button class="chip" data-font="rounded2" style="font-family:'Arial Rounded MT Bold','Avenir Next Rounded',sans-serif">Suave</button>
+        <button class="chip" data-font="condensed" style="font-family:'Arial Narrow',sans-serif">Estrecha</button>
+        <button class="chip" data-font="future" style="font-family:Futura,'Century Gothic',sans-serif">Futura</button>
+        <button class="chip" data-font="classic" style="font-family:Palatino,Baskerville,serif">Clásica</button>
+        <button class="chip" data-font="elegant" style="font-family:Didot,'Bodoni MT',Georgia,serif">Elegante</button>
+        <button class="chip" data-font="script" style="font-family:'Snell Roundhand','Brush Script MT',cursive;font-size:16px">Firma</button>
+        <button class="chip" data-font="hand" style="font-family:'Bradley Hand','Comic Sans MS',cursive">Escrita</button>
+        <button class="chip" data-font="marker" style="font-family:'Marker Felt','Comic Sans MS',sans-serif">Marcador</button>
+        <button class="chip" data-font="typewriter" style="font-family:'American Typewriter','Courier New',monospace">Máquina</button>
         <button class="chip" data-font="mono" style="font-family:monospace">Mono</button>
       </div>
 

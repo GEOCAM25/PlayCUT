@@ -272,8 +272,17 @@ export function clipFilterString(clip) {
 
 export const FONTS = {
   sans: '-apple-system, "Segoe UI", Roboto, sans-serif',
+  display: 'Impact, "Haettenschweiler", "Arial Black", sans-serif',
   serif: 'Georgia, "Times New Roman", serif',
   round: '"Trebuchet MS", "Segoe UI", system-ui, sans-serif',
   mono: '"Courier New", monospace',
-  display: 'Impact, "Arial Black", sans-serif',
+  script: '"Snell Roundhand", "Segoe Script", "Brush Script MT", cursive',
+  hand: '"Bradley Hand", "Comic Sans MS", cursive',
+  marker: '"Marker Felt", "Chalkboard SE", "Comic Sans MS", sans-serif',
+  typewriter: '"American Typewriter", "Courier New", monospace',
+  future: 'Futura, "Century Gothic", "Trebuchet MS", sans-serif',
+  classic: 'Palatino, "Palatino Linotype", Baskerville, Georgia, serif',
+  condensed: '"Arial Narrow", "Roboto Condensed", "Helvetica Neue Condensed", sans-serif',
+  rounded2: '"Avenir Next Rounded", "Arial Rounded MT Bold", "Segoe UI", sans-serif',
+  elegant: 'Didot, "Bodoni MT", "Playfair Display", Georgia, serif',
 };

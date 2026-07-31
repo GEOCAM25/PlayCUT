@@ -172,17 +172,37 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 .sheet.show { transform: translateY(0); }
 .sheet-inner { background: var(--bg-2); border-radius: 22px 22px 0 0; padding: 8px 20px calc(24px + var(--safe-bottom)); max-height: 88vh; overflow-y: auto; border-top: 1px solid var(--line); }
 .sheet-handle { width: 40px; height: 4px; background: var(--line); border-radius: 4px; margin: 6px auto 14px; }
-.sheet-inner h3 { margin: 0 0 16px; font-size: 17px; }
+.sheet-inner h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; padding-right: 44px; }
+.sheet-close {
+  position: absolute; top: 12px; right: 14px; z-index: 3;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--text);
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+.sheet-close:active { background: var(--panel); transform: scale(.92); }
 
 .sliders label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 16px; }
 .sliders output { float: right; color: var(--text); font-variant-numeric: tabular-nums; }
 .sliders input[type="range"] { width: 100%; margin-top: 8px; }
 
-.filters-row, .color-row { display: flex; gap: 8px; overflow-x: auto; padding: 6px 0 16px; }
-.chip { background: var(--bg-3); border: 1px solid var(--line); color: var(--text); border-radius: 20px; padding: 8px 16px; font-size: 13px; white-space: nowrap; }
-.chip.active { background: var(--grad); border-color: transparent; }
-.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0; }
-.swatch.active { border-color: #fff; transform: scale(1.1); }
+.filters-row, .color-row { display: flex; gap: 9px; overflow-x: auto; padding: 6px 2px 16px; scrollbar-width: none; }
+.filters-row::-webkit-scrollbar, .color-row::-webkit-scrollbar { display: none; }
+.chip {
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--line); color: var(--text);
+  border-radius: 22px; padding: 10px 18px; font-size: 13px; font-weight: 600;
+  white-space: nowrap; flex-shrink: 0;
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+}
+.chip:active { transform: scale(.93); }
+.chip.active {
+  background: var(--grad); border-color: transparent; color: #fff;
+  box-shadow: 0 4px 16px rgba(124,58,237,.45);
+}
+.swatch { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); transition: transform .1s; }
+.swatch:active { transform: scale(.9); }
+.swatch.active { border-color: #fff; transform: scale(1.12); box-shadow: 0 0 0 3px rgba(255,255,255,.25); }
 
 .text-area { width: 100%; min-height: 80px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 12px; color: var(--text); padding: 12px; font-size: 15px; resize: none; margin-bottom: 16px; }
 .sheet-buttons { display: flex; gap: 12px; }
@@ -211,12 +231,15 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 .opt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
 .opt-grid.two { grid-template-columns: repeat(2, 1fr); }
 .opt {
-  background: var(--bg-3); border: 1px solid var(--line); border-radius: 12px;
-  padding: 12px 6px; text-align: center; font-size: 12px; color: var(--text);
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 6px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: transform .08s ease, box-shadow .15s ease;
 }
-.opt .opt-ico { font-size: 20px; }
-.opt.active { background: var(--grad); border-color: transparent; }
+.opt:active { transform: scale(.96); }
+.opt .opt-ico { font-size: 22px; }
+.opt.active { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 5px 18px rgba(124,58,237,.4); }
 .opt-chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 14px; scrollbar-width: none; }
 .opt-chips::-webkit-scrollbar { display: none; }
 .sheet-sub { font-size: 12px; color: var(--text-dim); margin: 2px 0 10px; }

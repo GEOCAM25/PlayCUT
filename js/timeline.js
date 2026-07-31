@@ -99,12 +99,12 @@ export class Timeline {
     const track = this.trackEls.overlay;
     track.innerHTML = '';
     const clips = this.project.tracks.overlay || [];
-    if (clips.length === 0) { track.appendChild(this._hint('🖼️ Overlay / PiP')); return; }
+    if (clips.length === 0) { track.appendChild(this._hint('🖼️ Video/foto encima (superponer)')); return; }
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'overlay', clip.start, overlayDuration(clip));
       this._addThumb(el, clip.mediaId);
       el.classList.add('type-overlay');
-      this._addLabel(el, (clip.type === 'image' ? '🖼️ PiP' : '🎬 PiP') + (clip.muted ? ' 🔇' : ''));
+      this._addLabel(el, (clip.type === 'image' ? '🖼️ Encima' : '🎬 Encima') + (clip.muted ? ' 🔇' : ''));
       this._addTrimHandles(el, clip, 'overlay');
       this._makeMovable(el, clip, 'overlay');
       track.appendChild(el);

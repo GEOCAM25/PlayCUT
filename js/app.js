@@ -248,12 +248,12 @@ async function handleMediaFiles(files) {
 async function handleOverlayFiles(files) {
   if (!files.length) return;
   pushHistory();
-  toast('Importando PiP…');
+  toast('Importando superposición…');
   let last = null;
   for (const file of files) {
     try {
       const rec = await importFile(file);
-      if (rec.kind === 'audio') { toast('El PiP no admite audio suelto'); continue; }
+      if (rec.kind === 'audio') { toast('La superposición no admite audio suelto'); continue; }
       if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
       mediaNames.set(rec.id, rec.name);
       const clip = createOverlayClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height, start: engine.playhead });
@@ -261,7 +261,7 @@ async function handleOverlayFiles(files) {
     } catch (e) { console.error(e); toast('No se pudo importar ' + file.name); }
   }
   refresh(); pushHistory();
-  if (last) { timeline.select(last.id, 'overlay'); toast('PiP añadido — muévelo y ajústalo'); }
+  if (last) { timeline.select(last.id, 'overlay'); toast('Superposición añadida — muévela y ajústala'); }
 }
 
 // ==================================================================
@@ -406,6 +406,27 @@ function onClipSelected(clip) {
 function openSheet(id) { els.backdrop.classList.add('show'); $('#' + id).classList.add('show'); }
 function closeSheets() { els.backdrop.classList.remove('show'); $$('.sheet').forEach(s => { s.classList.remove('show'); s.style.transform = ''; }); }
 
+// Añade un botón ✕ (siempre visible) a cada hoja y cierra el teclado al tocar
+// fuera de un campo de texto.
+function injectSheetChrome() {
+  $$('.sheet').forEach(sheet => {
+    if (sheet.querySelector('.sheet-close')) return;
+    const btn = document.createElement('button');
+    btn.className = 'sheet-close';
+    btn.setAttribute('data-close-sheet', '');
+    btn.setAttribute('aria-label', 'Cerrar');
+    btn.textContent = '✕';
+    sheet.appendChild(btn);
+    const inner = sheet.querySelector('.sheet-inner');
+    if (inner) inner.addEventListener('pointerdown', (e) => {
+      const t = (e.target.tagName || '');
+      if (t !== 'TEXTAREA' && t !== 'INPUT' && document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+      }
+    });
+  });
+}
+
 // Arrastrar hacia abajo el tirador de una hoja para cerrarla (móvil).
 function bindSheetGestures() {
   $$('.sheet').forEach(sheet => {
@@ -443,7 +464,7 @@ function openAdjustSheet(clip, track) {
   const isImage = clip.type === 'image';
   const isVisual = track === 'video' || track === 'overlay';
   const hasVolume = track === 'audio' || (isVisual && clip.type === 'video');
-  $('#adjust-title').textContent = track === 'audio' ? 'Audio' : track === 'overlay' ? 'PiP / Overlay' : isImage ? 'Imagen' : 'Video';
+  $('#adjust-title').textContent = track === 'audio' ? 'Audio' : track === 'overlay' ? 'Superposición (video encima)' : isImage ? 'Imagen' : 'Video';
   $('#adj-visual-block').style.display = isVisual ? '' : 'none';
 
   const set = (sel, v) => { $(sel).value = v; };
@@ -923,6 +944,7 @@ function initTimeline() {
 }
 
 async function main() {
+  injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
   await renderProjects();

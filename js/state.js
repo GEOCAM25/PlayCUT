@@ -59,6 +59,8 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     fillMode: 'contain', // contain | cover
     bg: 'blur',          // black | blur
     scale: 1, offsetX: 0, offsetY: 0, rotate: 0,
+    // chroma key (pantalla verde)
+    chroma: { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 },
     // transición con el clip anterior
     transition: { type: 'none', duration: 0.6 },
   };
@@ -78,6 +80,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     fillMode: 'contain',
     scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
     radius: 0.04, shadow: true,
+    chroma: { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 },
   };
 }
 
@@ -129,6 +132,7 @@ export function normalizeProject(p) {
     c.bg = c.bg || 'blur';
     c.scale = c.scale ?? 1; c.offsetX = c.offsetX ?? 0; c.offsetY = c.offsetY ?? 0; c.rotate = c.rotate ?? 0;
     c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
+    if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
     if (!c.transition) c.transition = { type: 'none', duration: 0.6 };
   }
   for (const c of p.tracks.overlay) {
@@ -138,6 +142,7 @@ export function normalizeProject(p) {
     c.brightness = c.brightness ?? 1; c.contrast = c.contrast ?? 1; c.saturation = c.saturation ?? 1;
     c.volume = c.volume ?? 1; c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
+    if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
   }
   for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
   for (const c of p.tracks.text) {

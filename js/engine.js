@@ -21,6 +21,8 @@ export class Engine {
     this.onTick = null;
     this._raf = 0;
     this._captureTrack = null; // pista de captura durante la exportación
+    this._chromaScratch = document.createElement('canvas'); // para video
+    this._chromaCache = new Map(); // imágenes procesadas (clipId -> {key, canvas})
   }
 
   setProject(project) {
@@ -188,13 +190,21 @@ export class Engine {
     const sh = rec.type === 'image' ? src.naturalHeight : src.videoHeight;
     if (!sw || !sh) return;
 
+    // Chroma key (pantalla verde): sustituye la fuente por una versión con el
+    // color recortado a transparente.
+    let dsrc = src, dsw = sw, dsh = sh;
+    if (clip.chroma && clip.chroma.on) {
+      const keyed = this._chromaProcess(clip, src, sw, sh, rec.type === 'image');
+      if (keyed) { dsrc = keyed; dsw = keyed.width; dsh = keyed.height; }
+    }
+
     const q = this._clipProgress(clip, local);
     const m = this._motion(clip, q);
     const W = this.canvas.width, H = this.canvas.height;
     const useCover = clip.fillMode === 'cover' || m.cover;
 
     // Fondo difuminado si hay barras (modo contain) — solo para el clip base.
-    if (!extra.isOverlay && !useCover && clip.bg === 'blur') {
+    if (!extra.isOverlay && !useCover && clip.bg === 'blur' && !(clip.chroma && clip.chroma.on)) {
       this.ctx.save();
       this.ctx.filter = 'blur(28px) brightness(.6)';
       this._drawFit(src, sw, sh, true, 1.15, 0, 0, 0);
@@ -219,9 +229,43 @@ export class Engine {
     const ty = (clip.offsetY || 0) * H + m.dy * H + (extra.ty || 0);
     const rot = ((clip.rotate || 0) + (extra.rotate || 0)) * Math.PI / 180;
 
-    this._drawFit(src, sw, sh, useCover, totalScale, tx, ty, rot,
-      extra.isOverlay ? { radius: clip.radius, shadow: clip.shadow } : null);
+    const chromaOn = !!(clip.chroma && clip.chroma.on);
+    this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot,
+      extra.isOverlay ? { radius: chromaOn ? 0 : clip.radius, shadow: clip.shadow && !chromaOn } : null);
     this.ctx.restore();
+  }
+
+  // Recorta el color de chroma a transparente. Devuelve un canvas.
+  _chromaProcess(clip, src, sw, sh, isImage) {
+    const ch = clip.chroma;
+    const key = `${ch.color}|${ch.similarity}|${ch.smooth}|${sw}x${sh}`;
+    if (isImage) {
+      const cached = this._chromaCache.get(clip.id);
+      if (cached && cached.key === key) return cached.canvas;
+    }
+    const long = Math.max(sw, sh);
+    const cap = isImage ? 1280 : 720; // limita el coste en video
+    const scale = Math.min(1, cap / long);
+    const w = Math.max(2, Math.round(sw * scale)), h = Math.max(2, Math.round(sh * scale));
+    const canvas = isImage ? document.createElement('canvas') : this._chromaScratch;
+    canvas.width = w; canvas.height = h;
+    const cctx = canvas.getContext('2d', { willReadFrequently: true });
+    cctx.clearRect(0, 0, w, h);
+    cctx.drawImage(src, 0, 0, w, h);
+    let img;
+    try { img = cctx.getImageData(0, 0, w, h); } catch { return null; }
+    const d = img.data;
+    const kr = parseInt(ch.color.slice(1, 3), 16), kg = parseInt(ch.color.slice(3, 5), 16), kb = parseInt(ch.color.slice(5, 7), 16);
+    const sim = ch.similarity, sm = Math.max(0.001, ch.smooth);
+    for (let i = 0; i < d.length; i += 4) {
+      const dr = d[i] - kr, dg = d[i + 1] - kg, db = d[i + 2] - kb;
+      const dist = Math.sqrt(dr * dr + dg * dg + db * db) / 441.673;
+      if (dist < sim) d[i + 3] = 0;
+      else if (dist < sim + sm) d[i + 3] = Math.round(d[i + 3] * ((dist - sim) / sm));
+    }
+    cctx.putImageData(img, 0, 0);
+    if (isImage) this._chromaCache.set(clip.id, { key, canvas });
+    return canvas;
   }
 
   _drawFit(src, sw, sh, cover, scale, tx, ty, rot, opts) {

@@ -161,6 +161,18 @@
           <button class="opt" data-fill="cover"><span class="opt-ico">⬛</span>Rellenar</button>
           <button class="opt" data-bg="blur"><span class="opt-ico">🌫️</span>Fondo blur</button>
         </div>
+
+        <p class="sheet-sub">Pantalla verde (chroma) <span class="badge-pro">PRO</span></p>
+        <div class="opt-chips" id="chroma-row">
+          <button class="chip" data-chroma="off">Off</button>
+          <button class="chip" data-chroma="#00e000">Verde</button>
+          <button class="chip" data-chroma="#0047ff">Azul</button>
+          <button class="chip" data-chroma="pick">Cuentagotas</button>
+        </div>
+        <label class="only-chroma">Intensidad <output id="out-csim">40%</output>
+          <input id="adj-csim" type="range" min="0" max="100" value="40" /></label>
+        <label class="only-chroma">Suavizado <output id="out-csm">12%</output>
+          <input id="adj-csm" type="range" min="0" max="60" value="12" /></label>
       </div>
 
       <div class="sliders">
@@ -311,6 +323,13 @@
         <button class="chip" data-bg="black">Negro</button>
         <button class="chip" data-bg="white">Blanco</button>
         <button class="chip" data-bg="color">Color</button>
+      </div>
+
+      <p class="sheet-sub">Estilos rápidos</p>
+      <div class="opt-chips" id="text-presets">
+        <button class="chip" data-preset="subtitle">Subtítulo</button>
+        <button class="chip" data-preset="title">Título</button>
+        <button class="chip" data-preset="caption">Cartel</button>
       </div>
 
       <p class="sheet-sub">Animación <span class="badge-pro">PRO</span></p>

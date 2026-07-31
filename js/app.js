@@ -468,8 +468,21 @@ function openAdjustSheet(clip, track) {
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
   $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', clip.bg === b.dataset.bg));
   updateAdjustOutputs();
+  updateChromaUI();
   openSheet('sheet-adjust');
 }
+
+function updateChromaUI() {
+  const c = adjustTarget && adjustTarget.clip;
+  const on = !!(c && c.chroma && c.chroma.on);
+  setActive('#chroma-row', 'chroma', on ? c.chroma.color : 'off');
+  $('#adj-csim').value = Math.round((c?.chroma?.similarity ?? 0.4) * 100);
+  $('#adj-csm').value = Math.round((c?.chroma?.smooth ?? 0.12) * 100);
+  $('#out-csim').textContent = $('#adj-csim').value + '%';
+  $('#out-csm').textContent = $('#adj-csm').value + '%';
+  $$('.only-chroma').forEach(l => l.style.display = on ? '' : 'none');
+}
+function invalidateChroma(clip) { engine._chromaCache.delete(clip.id); }
 
 function updateAdjustOutputs() {
   $('#out-volume').textContent = $('#adj-volume').value + '%';
@@ -522,6 +535,56 @@ function bindAdjust() {
     if (bgBtn) { adjustTarget.clip.bg = adjustTarget.clip.bg === bgBtn.dataset.bg ? 'black' : bgBtn.dataset.bg; $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', adjustTarget.clip.bg === b.dataset.bg)); }
     engine.render(engine.playhead); scheduleSave();
   });
+
+  // Chroma key
+  $('#chroma-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-chroma]'); if (!b || !adjustTarget) return;
+    const v = b.dataset.chroma, c = adjustTarget.clip;
+    if (v === 'pick') { startChromaPick(); return; }
+    if (v === 'off') c.chroma.on = false;
+    else { c.chroma.on = true; c.chroma.color = v; }
+    invalidateChroma(c); updateChromaUI(); engine.render(engine.playhead); scheduleSave();
+  });
+  $('#adj-csim').addEventListener('input', () => {
+    if (!adjustTarget) return;
+    adjustTarget.clip.chroma.similarity = (+$('#adj-csim').value) / 100;
+    $('#out-csim').textContent = $('#adj-csim').value + '%';
+    invalidateChroma(adjustTarget.clip); engine.render(engine.playhead); scheduleSave();
+  });
+  $('#adj-csm').addEventListener('input', () => {
+    if (!adjustTarget) return;
+    adjustTarget.clip.chroma.smooth = (+$('#adj-csm').value) / 100;
+    $('#out-csm').textContent = $('#adj-csm').value + '%';
+    invalidateChroma(adjustTarget.clip); engine.render(engine.playhead); scheduleSave();
+  });
+}
+
+// ---------- Cuentagotas de chroma ----------
+let chromaPickMode = false;
+function startChromaPick() {
+  chromaPickMode = true;
+  els.backdrop.style.pointerEvents = 'none';
+  document.body.classList.add('picking');
+}
+function stopChromaPick() {
+  chromaPickMode = false;
+  els.backdrop.style.pointerEvents = '';
+  document.body.classList.remove('picking');
+}
+function pickChromaColor(e) {
+  const c = els.canvas, rect = c.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / rect.width * c.width);
+  const y = Math.floor((e.clientY - rect.top) / rect.height * c.height);
+  let px;
+  try { px = c.getContext('2d').getImageData(Math.max(0, Math.min(c.width - 1, x)), Math.max(0, Math.min(c.height - 1, y)), 1, 1).data; }
+  catch { stopChromaPick(); return; }
+  const hex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  if (adjustTarget) {
+    adjustTarget.clip.chroma.on = true;
+    adjustTarget.clip.chroma.color = hex;
+    invalidateChroma(adjustTarget.clip); updateChromaUI(); engine.render(engine.playhead); scheduleSave();
+  }
+  stopChromaPick(); haptic(12); toast('Color capturado: ' + hex);
 }
 
 // ---------- Audio / Volumen ----------
@@ -686,6 +749,15 @@ function bindText() {
   $('#text-fonts').addEventListener('click', (e) => { const b = e.target.closest('[data-font]'); if (!b || !textTarget) return; textTarget.font = b.dataset.font; setActive('#text-fonts', 'font', b.dataset.font); engine.render(engine.playhead); scheduleSave(); });
   $('#text-bg').addEventListener('click', (e) => { const b = e.target.closest('[data-bg]'); if (!b || !textTarget) return; textTarget.bg = b.dataset.bg; setActive('#text-bg', 'bg', b.dataset.bg); engine.render(engine.playhead); scheduleSave(); });
   $('#text-anim').addEventListener('click', (e) => { const b = e.target.closest('[data-anim]'); if (!b || !textTarget) return; textTarget.animIn = b.dataset.anim; textTarget.animOut = b.dataset.anim; setActive('#text-anim', 'anim', b.dataset.anim); engine.render(engine.playhead); scheduleSave(); });
+  $('#text-presets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-preset]'); if (!b || !textTarget) return;
+    const t = textTarget;
+    if (b.dataset.preset === 'subtitle') { t.y = 0.86; t.size = 52; t.font = 'sans'; t.bold = true; t.bg = 'black'; t.stroke = false; t.animIn = 'fade'; t.animOut = 'fade'; }
+    else if (b.dataset.preset === 'title') { t.y = 0.5; t.size = 128; t.font = 'display'; t.bg = 'none'; t.stroke = true; t.animIn = 'pop'; t.animOut = 'none'; }
+    else if (b.dataset.preset === 'caption') { t.y = 0.2; t.size = 72; t.font = 'round'; t.bg = 'color'; t.stroke = false; t.animIn = 'slideup'; t.animOut = 'fade'; }
+    openTextSheet(t); // refresca controles
+    engine.render(engine.playhead); timeline.render(); scheduleSave();
+  });
   $('#text-delete').addEventListener('click', () => {
     if (!textTarget) return;
     const i = project.tracks.text.findIndex(c => c.id === textTarget.id);
@@ -819,8 +891,9 @@ function bindGlobal() {
     if (e.target.classList.contains('track') || e.target.classList.contains('timeline')) { timeline.clearSelection(); }
   });
 
-  // Tocar la vista previa: si está vacía, importar; si no, play/pausa.
-  $('.preview-wrap').addEventListener('click', () => {
+  // Tocar la vista previa: cuentagotas > importar (si vacía) > play/pausa.
+  $('.preview-wrap').addEventListener('click', (e) => {
+    if (chromaPickMode) { pickChromaColor(e); return; }
     if (project.tracks.video.length === 0 && project.tracks.overlay.length === 0) els.fileMedia.click();
     else togglePlay();
   });

@@ -28,6 +28,11 @@ cada usuario, de forma independiente y privada.
 - 🖼️ **Capa Overlay / Picture-in-Picture (PiP)**: superpone videos o fotos
   encima del principal, con posición y tamaño libres, esquinas redondeadas y
   sombra. Ideal para reacciones, collages y marcos.
+- 🟢 **Chroma key (pantalla verde)**: recorta un color a transparente en tiempo
+  real, con **cuentagotas** para elegir el color tocando la vista previa, e
+  intensidad/suavizado ajustables. Funciona en el video base y en los PiP.
+- 💬 **Estilos rápidos de texto**: presets de **Subtítulo**, **Título** y
+  **Cartel** con un toque.
 - ⏱️ **Control de velocidad** por clip (0.25× a 4×), cámara lenta y rápida.
 - ✦ **Movimiento Ken Burns**: zoom in/out y paneo sobre fotos y videos.
 - 🎛️ **Transformación por clip**: escala, rotación, encuadre *Ajustar/Rellenar*

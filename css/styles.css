@@ -227,6 +227,9 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none;
 .icon-btn:disabled { opacity: .3; }
 
 .kbd-only { display: none; }
+.only-chroma { display: none; }
+body.picking .sheet { opacity: .3; pointer-events: none; }
+body.picking::after { content: '🎯 Toca el color a quitar'; position: fixed; top: calc(12px + var(--safe-top)); left: 50%; transform: translateX(-50%); background: var(--grad); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(124,58,237,.5); }
 
 /* ======================= RESPONSIVE ======================= */
 

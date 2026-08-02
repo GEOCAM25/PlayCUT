@@ -94,6 +94,20 @@ export class Engine {
     el.addEventListener('canplay', () => { rec.ready = true; if (!this.playing) this.render(this.playhead); });
     el.addEventListener('loadeddata', () => { rec.ready = true; });
     el.addEventListener('seeked', () => { if (!this.playing) this.render(this.playhead); });
+    el.addEventListener('error', () => { this.onMediaError && this.onMediaError(clip); });
+    // Corrige la duración si el clip se importó sin ella (p. ej. video de iPhone).
+    el.addEventListener('loadedmetadata', () => {
+      const d = el.duration;
+      if (d && isFinite(d) && (clip._autoDur || !clip.srcDuration || clip.srcDuration < 0.1)) {
+        const wasFull = clip.inPoint <= 0.001 && (clip.outPoint <= 0.1 || Math.abs(clip.outPoint - clip.srcDuration) < 0.01 || clip._autoDur);
+        clip.srcDuration = d;
+        if (wasFull) { clip.inPoint = 0; clip.outPoint = d; }
+        delete clip._autoDur;
+        this.recalc();
+        if (!this.playing) this.render(this.playhead);
+        this.onClipUpdated && this.onClipUpdated();
+      }
+    });
     rec.el = el;
     try { connectElement(clip.id, el); } catch {}
     setClipGain(clip.id, clip.volume ?? 1);

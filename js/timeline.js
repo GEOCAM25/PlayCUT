@@ -81,6 +81,7 @@ export class Timeline {
       if (clip.muted) tag += ' 🔇';
       this._addLabel(el, tag);
       this._addTrimHandles(el, clip, 'video');
+      this._makeReorderable(el, clip);
       track.appendChild(el);
       if (i > 0) {
         const tr = clip.transition || { type: 'none' };
@@ -179,7 +180,7 @@ export class Timeline {
       e.preventDefault(); e.stopPropagation();
       this.select(clip.id, track);
       startX = e.clientX; orig = { ...clip };
-      handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+      try { handle.setPointerCapture && handle.setPointerCapture(e.pointerId); } catch {}
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     };
@@ -245,13 +246,54 @@ export class Timeline {
     return best != null ? best : time;
   }
 
+  // Reordenar clips de video arrastrándolos (al principio, al final, donde sea).
+  // Solo cuando el clip está seleccionado (tócalo primero); así el resto del
+  // tiempo el gesto sirve para desplazar la línea de tiempo.
+  _makeReorderable(el, clip) {
+    let startX = 0, moved = false, dx = 0, origLeft = 0, w = 0;
+    const clips = this.project.tracks.video;
+    const down = (e) => {
+      if (e.target.classList.contains('clip-handle')) return;
+      if (clip.id !== this.selectedId) { this.select(clip.id, 'video'); return; }
+      startX = e.clientX; moved = false; dx = 0;
+      origLeft = parseFloat(el.style.left) || 0; w = parseFloat(el.style.width) || 0;
+      try { el.setPointerCapture && el.setPointerCapture(e.pointerId); } catch {}
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    };
+    const move = (e) => {
+      dx = e.clientX - startX;
+      if (Math.abs(dx) > 5) moved = true;
+      if (moved) { el.style.transform = `translateX(${dx}px)`; el.style.zIndex = '30'; el.classList.add('dragging'); }
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      el.style.transform = ''; el.style.zIndex = ''; el.classList.remove('dragging');
+      if (!moved) return;
+      const i = clips.indexOf(clip);
+      const layout = videoLayout(clips);
+      const draggedCenter = origLeft + dx + w / 2;
+      let target = 0;
+      for (let k = 0; k < clips.length; k++) {
+        if (k === i) continue;
+        const c = layout[k].start * this.pps + clipDuration(clips[k]) * this.pps / 2;
+        if (c < draggedCenter) target++;
+      }
+      if (target !== i) { const [m] = clips.splice(i, 1); clips.splice(target, 0, m); this.onChange && this.onChange(); }
+      this.render();
+    };
+    el.addEventListener('pointerdown', down);
+  }
+
   // ---------------- Mover ----------------
   _makeMovable(el, clip, track) {
     let startX = 0, origStart = 0, moved = false;
     const down = (e) => {
       if (e.target.classList.contains('clip-handle')) return;
+      if (clip.id !== this.selectedId) { this.select(clip.id, track); return; }
       startX = e.clientX; origStart = clip.start; moved = false;
-      el.setPointerCapture && el.setPointerCapture(e.pointerId);
+      try { el.setPointerCapture && el.setPointerCapture(e.pointerId); } catch {}
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     };

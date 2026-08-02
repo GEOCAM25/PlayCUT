@@ -35,16 +35,18 @@ export function createProject(name = 'Proyecto sin título') {
 
 // ---------------- Fábricas de clips ----------------
 export function createVideoClip({ mediaId, type, duration, width, height }) {
+  const dur = duration || 0;
   return {
     id: uid(),
     mediaId,
     type,               // 'video' | 'image'
     inPoint: 0,
-    outPoint: duration,
+    outPoint: dur,
+    _autoDur: type === 'video' && !duration, // corregir al cargar metadatos
     imageDuration: 3,
     srcWidth: width,
     srcHeight: height,
-    srcDuration: duration,
+    srcDuration: dur,
     // audio
     volume: 1,
     muted: false,
@@ -69,11 +71,13 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
 // Capa superpuesta (Picture-in-Picture): video o imagen encima del principal,
 // posicionado libremente en el tiempo (start) y en pantalla (scale/offset).
 export function createOverlayClip({ mediaId, type, duration, width, height, start = 0 }) {
+  const dur = duration || 0;
   return {
     id: uid(), mediaId, type,
     start,
-    inPoint: 0, outPoint: duration, imageDuration: 3,
-    srcWidth: width, srcHeight: height, srcDuration: duration,
+    inPoint: 0, outPoint: dur, imageDuration: 3,
+    _autoDur: type === 'video' && !duration,
+    srcWidth: width, srcHeight: height, srcDuration: dur,
     volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
     speed: 1, motion: 'none',

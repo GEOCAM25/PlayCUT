@@ -227,6 +227,8 @@ async function openProject(id) {
 
   engine.setProject(project);
   engine.onTick = tickHandler;
+  engine.onClipUpdated = () => { timeline.render(); updateDurationUI(); fitPreview(); scheduleSave(); };
+  engine.onMediaError = () => { toast('Un video no se pudo reproducir aquí. Si es de iPhone, prueba grabarlo en «Más compatible» (H.264/MP4).'); };
   timeline.mediaThumbs = mediaThumbs; timeline.mediaNames = mediaNames;
   timeline.setProject(project); timeline.clearSelection();
   onClipSelected(null);
@@ -255,8 +257,10 @@ function togglePlay() {
 async function handleMediaFiles(files) {
   if (!files.length) return;
   pushHistory();
-  toast('Importando…');
-  for (const file of files) {
+  let added = 0, lastVideo = null;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    toast(files.length > 1 ? `Importando ${i + 1} de ${files.length}…` : 'Importando…');
     try {
       const rec = await importFile(file);
       if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
@@ -264,11 +268,20 @@ async function handleMediaFiles(files) {
       if (rec.kind === 'audio') {
         project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: rec.duration || 5, start: engine.playhead, name: rec.name }));
       } else {
-        project.tracks.video.push(createVideoClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height }));
+        const clip = createVideoClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height });
+        project.tracks.video.push(clip); lastVideo = clip;
       }
-    } catch (e) { console.error(e); toast('No se pudo importar ' + file.name); }
+      added++;
+    } catch (e) {
+      console.error(e);
+      const quota = /quota|exceeded|storage|space|full/i.test((e && (e.name + ' ' + e.message)) || '');
+      toast(quota ? 'No hay espacio en el dispositivo para ese archivo' : ('No se pudo importar ' + (file.name || 'el archivo')));
+    }
   }
-  refresh(); pushHistory(); toast('¡Añadido!');
+  refresh();
+  void lastVideo;
+  pushHistory();
+  if (added) toast('¡Añadido! Toca el clip para editarlo o pellízcalo con 2 dedos');
 }
 
 async function handleOverlayFiles(files) {

@@ -24,40 +24,55 @@ export async function blobURLFor(mediaId) {
   return url;
 }
 
-// Lee metadatos (dimensiones/duración) de un archivo antes de guardarlo.
-function probe(file) {
+// Detecta el tipo por MIME o, si falta (iPhone a veces manda type vacío), por
+// la extensión del nombre.
+export function detectKind(file) {
+  const t = (file.type || '').toLowerCase();
+  if (t.startsWith('video')) return 'video';
+  if (t.startsWith('image')) return 'image';
+  if (t.startsWith('audio')) return 'audio';
+  const n = (file.name || '').toLowerCase();
+  if (/\.(mp4|mov|m4v|webm|mkv|avi|3gp|hevc|ts)$/.test(n)) return 'video';
+  if (/\.(jpe?g|png|gif|webp|heic|heif|bmp|avif)$/.test(n)) return 'image';
+  if (/\.(mp3|wav|m4a|aac|ogg|oga|opus|flac)$/.test(n)) return 'audio';
+  return 'other';
+}
+
+// Lee metadatos (dimensiones/duración). Nunca se cuelga: hay timeout de rescate.
+function probe(file, kind) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
-    if (file.type.startsWith('video')) {
+    let done = false;
+    const finish = (r) => { if (done) return; done = true; clearTimeout(timer); URL.revokeObjectURL(url); resolve(r); };
+    const timer = setTimeout(() => finish({ duration: 0, width: 0, height: 0 }), 12000);
+    if (kind === 'video') {
       const v = document.createElement('video');
-      v.preload = 'metadata'; v.muted = true;
-      v.onloadedmetadata = () => {
-        resolve({ duration: v.duration || 0, width: v.videoWidth, height: v.videoHeight });
-        URL.revokeObjectURL(url);
-      };
-      v.onerror = () => { resolve({ duration: 0, width: 1080, height: 1920 }); URL.revokeObjectURL(url); };
+      v.preload = 'metadata'; v.muted = true; v.playsInline = true;
+      v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+      v.onloadedmetadata = () => finish({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0 });
+      v.onerror = () => finish({ duration: 0, width: 0, height: 0 });
       v.src = url;
-    } else if (file.type.startsWith('image')) {
+    } else if (kind === 'image') {
       const img = new Image();
-      img.onload = () => { resolve({ duration: 0, width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
-      img.onerror = () => { resolve({ duration: 0, width: 1080, height: 1920 }); URL.revokeObjectURL(url); };
+      img.onload = () => finish({ duration: 0, width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => finish({ duration: 0, width: 1080, height: 1920 });
       img.src = url;
-    } else if (file.type.startsWith('audio')) {
-      const a = document.createElement('audio');
-      a.preload = 'metadata';
-      a.onloadedmetadata = () => { resolve({ duration: a.duration || 0, width: 0, height: 0 }); URL.revokeObjectURL(url); };
-      a.onerror = () => { resolve({ duration: 0, width: 0, height: 0 }); URL.revokeObjectURL(url); };
+    } else if (kind === 'audio') {
+      const a = document.createElement('audio'); a.preload = 'metadata';
+      a.onloadedmetadata = () => finish({ duration: a.duration || 0, width: 0, height: 0 });
+      a.onerror = () => finish({ duration: 0, width: 0, height: 0 });
       a.src = url;
-    } else {
-      resolve({ duration: 0, width: 0, height: 0 });
-    }
+    } else finish({ duration: 0, width: 0, height: 0 });
   });
 }
 
-// Genera una miniatura (dataURL) para video/imagen.
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r('timeout'), ms))]);
+
+// Genera una miniatura (dataURL) para video/imagen. Nunca se cuelga.
 async function makeThumb(file, kind) {
+  let url;
   try {
-    const url = URL.createObjectURL(file);
+    url = URL.createObjectURL(file);
     const canvas = document.createElement('canvas');
     canvas.width = 160; canvas.height = 160;
     const ctx = canvas.getContext('2d');
@@ -67,38 +82,36 @@ async function makeThumb(file, kind) {
       ctx.drawImage(media, (160 - w) / 2, (160 - h) / 2, w, h);
     };
     if (kind === 'image') {
-      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const img = await withTimeout(new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }), 8000);
+      if (img === 'timeout' || !img.naturalWidth) return null;
       drawCover(img, img.naturalWidth, img.naturalHeight);
     } else if (kind === 'video') {
       const v = document.createElement('video');
-      v.muted = true; v.src = url;
-      await new Promise((res) => { v.onloadeddata = res; v.onerror = res; });
+      v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.src = url;
+      await withTimeout(new Promise((res) => { v.onloadeddata = res; v.onerror = res; }), 8000);
+      if (!v.videoWidth) return null;
       try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); } catch {}
-      await new Promise((res) => { v.onseeked = res; setTimeout(res, 400); });
+      await withTimeout(new Promise((res) => { v.onseeked = res; }), 1500);
       drawCover(v, v.videoWidth || 160, v.videoHeight || 160);
-    } else {
-      URL.revokeObjectURL(url);
-      return null;
-    }
-    URL.revokeObjectURL(url);
+    } else return null;
     return canvas.toDataURL('image/jpeg', 0.7);
   } catch {
     return null;
+  } finally {
+    if (url) URL.revokeObjectURL(url);
   }
 }
 
 // Importa un archivo: lo guarda como Blob en IndexedDB y devuelve su registro.
 export async function importFile(file) {
-  const kind = file.type.startsWith('video') ? 'video'
-    : file.type.startsWith('image') ? 'image'
-    : file.type.startsWith('audio') ? 'audio' : 'other';
-  const meta = await probe(file);
-  const thumb = kind === 'audio' ? null : await makeThumb(file, kind);
+  const kind = detectKind(file);
+  const meta = await probe(file, kind);
+  const thumb = (kind === 'audio' || kind === 'other') ? null : await makeThumb(file, kind);
   const record = {
     id: uid(),
-    name: file.name,
-    mime: file.type,
-    kind,
+    name: file.name || (kind + '-' + Date.now()),
+    mime: file.type || '',
+    kind: kind === 'other' ? 'video' : kind, // por defecto tratamos lo desconocido como video
     blob: file,
     duration: meta.duration,
     width: meta.width,
@@ -106,7 +119,7 @@ export async function importFile(file) {
     thumb,
     createdAt: Date.now(),
   };
-  await saveMedia(record);
+  await saveMedia(record); // puede lanzar si no hay espacio en el dispositivo
   mediaCache.set(record.id, record);
   return record;
 }

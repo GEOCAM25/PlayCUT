@@ -3,7 +3,7 @@
 import {
   createProject, createVideoClip, createAudioClip, createTextClip, createOverlayClip,
   clipDuration, projectDuration, videoClipAt, formatTime,
-  normalizeProject, RATIOS,
+  normalizeProject, RATIOS, videoClipStart, overlayDuration,
 } from './state.js';
 import * as db from './db.js';
 import { importFile, loadMediaRecord } from './media.js';
@@ -334,6 +334,7 @@ function bindToolbar() {
       case 'add-media': els.fileMedia.click(); break;
       case 'add-overlay': els.fileOverlay.click(); break;
       case 'add-audio': els.fileAudio.click(); break;
+      case 'voice': openVoiceSheet(); break;
       case 'add-text': addTextAtPlayhead(false); break;
       case 'add-sticker': addTextAtPlayhead(true); break;
       case 'add-gif': openGifSheet(); break;
@@ -561,6 +562,8 @@ function openAdjustSheet(clip, track) {
   // Mezcla: solo para superposiciones.
   $$('.only-overlay').forEach(l => l.style.display = track === 'overlay' ? (l.classList.contains('opt-chips') ? 'flex' : 'block') : 'none');
   setActive('#blend-row', 'blend', clip.blend || 'normal');
+  setActive('#mask-row', 'mask', clip.mask || 'none');
+  updateKfUI(clip);
   updateAdjustOutputs();
   updateChromaUI();
   openSheet('sheet-adjust');
@@ -583,6 +586,29 @@ function updateFillUI(clip) {
   $$('#fill-row [data-bg]').forEach(b => b.classList.toggle('active', b.dataset.bg === 'blur' ? clip.bg === 'blur' : isColor));
   $('#fill-colors').style.display = isColor ? 'flex' : 'none';
   $$('#fill-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === clip.bg));
+}
+
+// ---------- Keyframes ----------
+function clipLocalTime(clip, track) {
+  if (track === 'overlay') return Math.max(0, Math.min(engine.playhead - clip.start, overlayDuration(clip)));
+  const clips = project.tracks.video; const i = clips.indexOf(clip);
+  const start = videoClipStart(clips, i);
+  return Math.max(0, Math.min(engine.playhead - start, clipDuration(clip)));
+}
+function currentTransform(c) {
+  return { scale: c.scale ?? 1, offsetX: c.offsetX ?? 0, offsetY: c.offsetY ?? 0, rotate: c.rotate ?? 0, opacity: c.opacity ?? 1 };
+}
+function upsertKeyframe(clip, track) {
+  if (!clip.keyframes) clip.keyframes = [];
+  const t = clipLocalTime(clip, track);
+  const entry = { t, ...currentTransform(clip) };
+  const idx = clip.keyframes.findIndex(k => Math.abs(k.t - t) < 0.05);
+  if (idx >= 0) clip.keyframes[idx] = entry; else { clip.keyframes.push(entry); clip.keyframes.sort((a, b) => a.t - b.t); }
+}
+function updateKfUI(clip) {
+  const n = (clip.keyframes || []).length;
+  const btn = $('#kf-add-label'); if (btn) btn.textContent = n ? `Keyframe (${n})` : 'Añadir keyframe';
+  $('#kf-add').classList.toggle('active', n > 0);
 }
 
 function updateAdjustOutputs() {
@@ -611,6 +637,7 @@ function bindAdjust() {
     c.contrast = (+$('#adj-contrast').value) / 100;
     c.saturation = (+$('#adj-saturation').value) / 100;
     c.opacity = (+$('#adj-opacity').value) / 100;
+    if (c.keyframes && c.keyframes.length) { upsertKeyframe(c, adjustTarget.track); updateKfUI(c); }
     updateAdjustOutputs();
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
   };
@@ -632,6 +659,22 @@ function bindAdjust() {
     const b = e.target.closest('[data-blend]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.blend = b.dataset.blend; setActive('#blend-row', 'blend', b.dataset.blend);
     engine.render(engine.playhead); scheduleSave();
+  });
+  $('#mask-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mask]'); if (!b || !adjustTarget) return;
+    adjustTarget.clip.mask = b.dataset.mask; setActive('#mask-row', 'mask', b.dataset.mask);
+    engine.render(engine.playhead); timeline.render(); scheduleSave();
+  });
+  $('#kf-add').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    upsertKeyframe(adjustTarget.clip, adjustTarget.track);
+    updateKfUI(adjustTarget.clip); engine.render(engine.playhead); scheduleSave(); haptic(12);
+    toast('Keyframe añadido. Mueve el cursor a otro momento y ajusta el clip.');
+  });
+  $('#kf-clear').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    adjustTarget.clip.keyframes = [];
+    updateKfUI(adjustTarget.clip); engine.render(engine.playhead); scheduleSave();
   });
   $('#fill-row').addEventListener('click', (e) => {
     const fillBtn = e.target.closest('[data-fill]');
@@ -1067,6 +1110,59 @@ async function addGifFromUrl(url, title) {
 }
 
 // ==================================================================
+//  VOZ EN OFF (grabar con el micrófono)
+// ==================================================================
+let voiceRec = null, voiceStream = null, voiceStart = 0, voiceChunks = [], voiceTimerId = null, voiceRecMs = 0;
+function openVoiceSheet() {
+  $('#voice-timer').textContent = '0:00';
+  $('#voice-btn').textContent = '● Grabar'; $('#voice-btn').classList.remove('voice-btn-rec');
+  openSheet('sheet-voice');
+}
+function bindVoice() { $('#voice-btn').addEventListener('click', toggleVoice); }
+async function toggleVoice() {
+  if (voiceRec && voiceRec.state === 'recording') { stopVoice(); return; }
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) { toast('No se pudo usar el micrófono. Da permiso e inténtalo otra vez.'); return; }
+  const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+    : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+  try { voiceRec = new MediaRecorder(voiceStream, mime ? { mimeType: mime } : undefined); }
+  catch { voiceRec = new MediaRecorder(voiceStream); }
+  voiceChunks = [];
+  voiceRec.ondataavailable = (e) => { if (e.data && e.data.size) voiceChunks.push(e.data); };
+  voiceRec.onstop = onVoiceStop;
+  voiceStart = engine.playhead; voiceRecMs = Date.now();
+  voiceRec.start();
+  if (projectDuration(project) > 0) { engine.play(); setPlayIcon(true); }
+  $('#voice-btn').textContent = '■ Detener'; $('#voice-btn').classList.add('voice-btn-rec');
+  clearInterval(voiceTimerId);
+  voiceTimerId = setInterval(() => { $('#voice-timer').textContent = formatTime((Date.now() - voiceRecMs) / 1000).slice(0, 4); }, 200);
+  haptic(15);
+}
+function stopVoice() {
+  clearInterval(voiceTimerId);
+  if (voiceRec && voiceRec.state !== 'inactive') voiceRec.stop();
+  engine.pause(); setPlayIcon(false);
+}
+async function onVoiceStop() {
+  if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+  const secs = (Date.now() - voiceRecMs) / 1000;
+  const blob = new Blob(voiceChunks, { type: (voiceRec && voiceRec.mimeType) || 'audio/webm' });
+  $('#voice-btn').textContent = '● Grabar'; $('#voice-btn').classList.remove('voice-btn-rec');
+  if (!blob.size) { toast('No se grabó audio'); return; }
+  try {
+    pushHistory();
+    const ext = blob.type.includes('mp4') ? 'm4a' : 'webm';
+    const rec = await importFile(new File([blob], 'voz.' + ext, { type: blob.type }));
+    mediaNames.set(rec.id, 'Voz en off');
+    const dur = (isFinite(rec.duration) && rec.duration > 0.1 && rec.duration < 86400) ? rec.duration : Math.max(0.3, secs);
+    project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: dur, start: voiceStart, name: 'Voz en off' }));
+    refresh(); pushHistory(); closeSheets();
+    toast('🎙️ Voz en off añadida');
+  } catch (e) { console.error(e); toast('No se pudo guardar la voz'); }
+}
+
+// ==================================================================
 //  GESTOS EN LA VISTA PREVIA (pellizcar / arrastrar el clip)
 // ==================================================================
 function gestureTarget() {
@@ -1124,6 +1220,10 @@ function bindPreviewGestures() {
     if (chromaPickMode) { pickChromaColor(e); if (pointers.size === 0) g = null; return; }
     if (!g) return;
     if ((g.mode === 'pinch' || g.mode === 'drag')) {
+      // Si el clip tiene keyframes, la nueva transformación crea/actualiza uno.
+      if (g.t && (g.t.track === 'video' || g.t.track === 'overlay') && g.t.clip.keyframes && g.t.clip.keyframes.length) {
+        upsertKeyframe(g.t.clip, g.t.track); engine.render(engine.playhead);
+      }
       scheduleSave(); timeline.render(); pushHistory();
       if (pointers.size === 0) g = null;
     } else if (g.mode === 'maybe' && !g.moved && pointers.size === 0) {
@@ -1200,7 +1300,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures();
+  bindGif(); bindPreviewGestures(); bindVoice();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

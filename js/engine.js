@@ -245,8 +245,16 @@ export class Engine {
       }
     }
 
+    // Transformación: keyframes (si hay) o valores base del clip.
+    const kf = this._kfTransform(clip, local);
+    const tScale = kf ? kf.scale : (clip.scale || 1);
+    const tOx = kf ? kf.offsetX : (clip.offsetX || 0);
+    const tOy = kf ? kf.offsetY : (clip.offsetY || 0);
+    const tRot = kf ? kf.rotate : (clip.rotate || 0);
+    const tOpacity = kf ? kf.opacity : (clip.opacity ?? 1);
+
     this.ctx.save();
-    this.ctx.globalAlpha = (clip.opacity ?? 1) * (extra.alpha ?? 1);
+    this.ctx.globalAlpha = tOpacity * (extra.alpha ?? 1);
     let filter = clipFilterString(clip);
     if (extra.filter) filter += ' ' + extra.filter;
     this.ctx.filter = filter;
@@ -258,16 +266,38 @@ export class Engine {
       this.ctx.clip();
     }
 
-    const totalScale = (clip.scale || 1) * m.scale * (extra.scale ?? 1);
-    const tx = (clip.offsetX || 0) * W + m.dx * W + (extra.tx || 0);
-    const ty = (clip.offsetY || 0) * H + m.dy * H + (extra.ty || 0);
-    const rot = ((clip.rotate || 0) + (extra.rotate || 0)) * Math.PI / 180;
+    const totalScale = tScale * m.scale * (extra.scale ?? 1);
+    const tx = tOx * W + m.dx * W + (extra.tx || 0);
+    const ty = tOy * H + m.dy * H + (extra.ty || 0);
+    const rot = (tRot + (extra.rotate || 0)) * Math.PI / 180;
 
     const chromaOn = !!(clip.chroma && clip.chroma.on);
     const blended = extra.isOverlay && clip.blend && clip.blend !== 'normal';
-    this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot,
-      extra.isOverlay ? { radius: chromaOn ? 0 : clip.radius, shadow: clip.shadow && !chromaOn && !blended } : null);
+    const masked = clip.mask && clip.mask !== 'none';
+    const fitOpts = { mask: masked ? clip.mask : null };
+    if (extra.isOverlay) {
+      fitOpts.radius = (chromaOn || masked) ? 0 : clip.radius;
+      fitOpts.shadow = clip.shadow && !chromaOn && !blended && !masked;
+    }
+    this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot, fitOpts);
     this.ctx.restore();
+  }
+
+  // Interpola la transformación entre keyframes en el tiempo local del clip.
+  _kfTransform(clip, local) {
+    const kf = clip.keyframes;
+    if (!kf || !kf.length) return null;
+    if (kf.length === 1 || local <= kf[0].t) return kf[0];
+    if (local >= kf[kf.length - 1].t) return kf[kf.length - 1];
+    for (let i = 0; i < kf.length - 1; i++) {
+      if (local >= kf[i].t && local <= kf[i + 1].t) {
+        const a = kf[i], b = kf[i + 1];
+        const p = (b.t - a.t) ? (local - a.t) / (b.t - a.t) : 0;
+        const L = (x, y) => x + (y - x) * p;
+        return { scale: L(a.scale, b.scale), offsetX: L(a.offsetX, b.offsetX), offsetY: L(a.offsetY, b.offsetY), rotate: L(a.rotate, b.rotate), opacity: L(a.opacity, b.opacity) };
+      }
+    }
+    return kf[kf.length - 1];
   }
 
   // Recorta el color de chroma a transparente. Devuelve un canvas.
@@ -322,9 +352,44 @@ export class Engine {
       ctx.fill();
       ctx.restore();
     }
-    if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip(); }
+    if (opts && opts.mask) { this._maskPath(ctx, opts.mask, w, h); ctx.clip(); }
+    else if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip(); }
     ctx.drawImage(src, -w / 2, -h / 2, w, h);
     ctx.restore();
+  }
+
+  // Traza el contorno de una máscara de forma centrada en (0,0), tamaño w×h.
+  _maskPath(ctx, mask, w, h) {
+    ctx.beginPath();
+    const rx = w / 2, ry = h / 2, s = Math.min(rx, ry);
+    if (mask === 'circle') {
+      ctx.ellipse(0, 0, s, s, 0, 0, Math.PI * 2);
+    } else if (mask === 'oval') {
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    } else if (mask === 'roundrect') {
+      this._roundRect(ctx, -rx, -ry, w, h, Math.min(rx, ry) * 0.35);
+    } else if (mask === 'triangle') {
+      ctx.moveTo(0, -s); ctx.lineTo(s * 0.92, s * 0.7); ctx.lineTo(-s * 0.92, s * 0.7); ctx.closePath();
+    } else if (mask === 'star') {
+      const spikes = 5, outer = s, inner = s * 0.45;
+      for (let i = 0; i < spikes * 2; i++) {
+        const rr = i % 2 === 0 ? outer : inner;
+        const a = (Math.PI / spikes) * i - Math.PI / 2;
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+    } else if (mask === 'heart') {
+      const u = s / 16;
+      ctx.moveTo(0, 5 * u);
+      ctx.bezierCurveTo(-2 * u, 1 * u, -8 * u, -1 * u, -8 * u, -5 * u);
+      ctx.bezierCurveTo(-8 * u, -10 * u, -3 * u, -11 * u, 0, -6 * u);
+      ctx.bezierCurveTo(3 * u, -11 * u, 8 * u, -10 * u, 8 * u, -5 * u);
+      ctx.bezierCurveTo(8 * u, -1 * u, 2 * u, 1 * u, 0, 5 * u);
+      ctx.closePath();
+    } else {
+      ctx.rect(-rx, -ry, w, h);
+    }
   }
 
   drawTransition(vs) {

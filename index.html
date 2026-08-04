@@ -101,6 +101,7 @@
       <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
       <button class="tool" data-action="add-gif"><i>🎞️</i><span>GIF</span></button>
       <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
+      <button class="tool" data-action="voice"><i>🎙️</i><span>Voz</span></button>
       <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
       <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
     </nav>
@@ -189,6 +190,24 @@
           <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
           <button class="swatch" style="background:#7c3aed" data-color="#7c3aed"></button>
         </div>
+
+        <p class="sheet-sub">Máscara de forma <span class="badge-pro">PRO</span></p>
+        <div class="opt-chips" id="mask-row">
+          <button class="chip" data-mask="none">Ninguna</button>
+          <button class="chip" data-mask="circle">● Círculo</button>
+          <button class="chip" data-mask="oval">Óvalo</button>
+          <button class="chip" data-mask="roundrect">▢ Redondo</button>
+          <button class="chip" data-mask="triangle">▲ Triángulo</button>
+          <button class="chip" data-mask="star">★ Estrella</button>
+          <button class="chip" data-mask="heart">♥ Corazón</button>
+        </div>
+
+        <p class="sheet-sub">Animación con keyframes <span class="badge-pro">PRO</span></p>
+        <div class="opt-grid two">
+          <button class="opt" id="kf-add"><span class="opt-ico">◆</span><span id="kf-add-label">Añadir keyframe</span></button>
+          <button class="opt" id="kf-clear"><span class="opt-ico">🗑️</span>Borrar animación</button>
+        </div>
+        <p class="export-meta" id="kf-hint">Coloca el cursor, mueve/escala el clip (con 2 dedos) y añade un keyframe. Repite en otro momento y se animará solo.</p>
 
         <p class="sheet-sub">Pantalla verde (chroma) <span class="badge-pro">PRO</span></p>
         <div class="opt-chips" id="chroma-row">
@@ -393,6 +412,18 @@
         <button class="ghost-btn" id="text-delete">Borrar</button>
         <button class="primary-btn" data-close-sheet>Listo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: VOZ EN OFF ===================== -->
+  <div id="sheet-voice" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Voz en off <span class="badge-pro">PRO</span></h3>
+      <p class="export-meta">Narra sobre tu video. Se graba desde donde está el cursor. Necesita permiso del micrófono.</p>
+      <div class="voice-timer" id="voice-timer">0:00</div>
+      <button class="primary-btn full" id="voice-btn">● Grabar</button>
+      <button class="ghost-btn full" data-close-sheet>Cerrar</button>
     </div>
   </div>
 

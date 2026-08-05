@@ -121,6 +121,8 @@ export class Timeline {
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'audio', clip.start, clip.outPoint - clip.inPoint);
       el.classList.add('type-audio');
+      const peaks = this._mediaPeaks(clip.mediaId);
+      if (peaks) this._drawWave(el, clip, peaks);
       this._addLabel(el, (clip.muted ? '🔇 ' : '🎵 ') + (this._mediaName(clip.mediaId) || 'Audio'));
       this._addTrimHandles(el, clip, 'audio');
       this._makeMovable(el, clip, 'audio');
@@ -184,6 +186,32 @@ export class Timeline {
 
   _mediaThumb(mediaId) { return (this.mediaThumbs && this.mediaThumbs.get(mediaId)) || null; }
   _mediaName(mediaId) { return (this.mediaNames && this.mediaNames.get(mediaId)) || null; }
+  _mediaPeaks(mediaId) { return (this.mediaPeaks && this.mediaPeaks.get(mediaId)) || null; }
+
+  // Dibuja la forma de onda del audio en el clip, respetando el recorte.
+  _drawWave(el, clip, peaks) {
+    const wPx = Math.max(8, Math.round((clip.outPoint - clip.inPoint) * this.pps));
+    const cw = Math.min(1200, wPx), ch = 34;
+    const cv = document.createElement('canvas');
+    cv.className = 'wave-canvas';
+    cv.width = cw; cv.height = ch;
+    const cx = cv.getContext('2d');
+    const src = clip.srcDuration || clip.outPoint || 1;
+    const n = peaks.length;
+    const startB = Math.max(0, Math.floor((clip.inPoint || 0) / src * n));
+    const endB = Math.max(startB + 1, Math.min(n, Math.floor((clip.outPoint || src) / src * n)));
+    const span = endB - startB;
+    const bars = Math.min(cw, 260);
+    const bw = cw / bars;
+    cx.fillStyle = 'rgba(255,255,255,.6)';
+    for (let i = 0; i < bars; i++) {
+      const b = startB + Math.floor((i / bars) * span);
+      const amp = peaks[b] || 0;
+      const bh = Math.max(1, amp * (ch - 3));
+      cx.fillRect(i * bw, (ch - bh) / 2, Math.max(1, bw * 0.7), bh);
+    }
+    el.insertBefore(cv, el.firstChild);
+  }
 
   // ---------------- Recorte ----------------
   _addTrimHandles(el, clip, track) {

@@ -130,6 +130,49 @@ let audioCtx = null;
 let streamDest = null;
 const clipNodes = new Map(); // clipId -> { gain }
 
+// Calcula la forma de onda (picos normalizados 0..1) de un audio, una sola vez.
+const peaksCache = new Map();     // mediaId -> Float32Array
+const peaksPending = new Map();   // mediaId -> Promise
+export async function computePeaks(mediaId, buckets = 600) {
+  if (peaksCache.has(mediaId)) return peaksCache.get(mediaId);
+  if (peaksPending.has(mediaId)) return peaksPending.get(mediaId);
+  const job = (async () => {
+    const rec = await loadMediaRecord(mediaId);
+    if (!rec || !rec.blob) return null;
+    let buffer;
+    try {
+      const arr = await rec.blob.arrayBuffer();
+      const ctx = getAudioContext();
+      buffer = await new Promise((res, rej) => {
+        const p = ctx.decodeAudioData(arr, res, rej);
+        if (p && p.then) p.then(res, rej);
+      });
+    } catch (e) { return null; }
+    const len = buffer.length;
+    if (!len) return null;
+    const per = Math.max(1, Math.floor(len / buckets));
+    const d0 = buffer.getChannelData(0);
+    const d1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+    const peaks = new Float32Array(buckets);
+    let max = 1e-4;
+    for (let b = 0; b < buckets; b++) {
+      const s = b * per, e = Math.min(len, s + per);
+      let p = 0;
+      for (let i = s; i < e; i++) {
+        let v = Math.abs(d0[i]);
+        if (d1) { const v2 = Math.abs(d1[i]); if (v2 > v) v = v2; }
+        if (v > p) p = v;
+      }
+      peaks[b] = p; if (p > max) max = p;
+    }
+    for (let b = 0; b < buckets; b++) peaks[b] /= max;
+    peaksCache.set(mediaId, peaks);
+    return peaks;
+  })().finally(() => peaksPending.delete(mediaId));
+  peaksPending.set(mediaId, job);
+  return job;
+}
+
 export function getAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();

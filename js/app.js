@@ -6,7 +6,7 @@ import {
   normalizeProject, RATIOS, videoClipStart, overlayDuration,
 } from './state.js';
 import * as db from './db.js';
-import { importFile, loadMediaRecord } from './media.js';
+import { importFile, loadMediaRecord, computePeaks } from './media.js';
 import { Engine } from './engine.js';
 import { Timeline } from './timeline.js';
 import { exportProject, computeExportSize } from './exporter.js';
@@ -38,6 +38,16 @@ let saveTimer = null;
 let deferredInstall = null;
 const mediaThumbs = new Map();
 const mediaNames = new Map();
+const mediaPeaks = new Map();
+
+// Calcula (una vez) la forma de onda de un audio y redibuja la línea de tiempo.
+async function ensurePeaks(mediaId) {
+  if (!mediaId || mediaPeaks.has(mediaId)) return;
+  try {
+    const peaks = await computePeaks(mediaId, 600);
+    if (peaks) { mediaPeaks.set(mediaId, peaks); timeline && timeline.render(); }
+  } catch { /* sin forma de onda, no pasa nada */ }
+}
 
 // Historial (deshacer / rehacer)
 let history = [];
@@ -229,9 +239,11 @@ async function openProject(id) {
   engine.onTick = tickHandler;
   engine.onClipUpdated = () => { timeline.render(); updateDurationUI(); fitPreview(); scheduleSave(); };
   engine.onMediaError = () => { toast('Un video no se pudo reproducir aquí. Si es de iPhone, prueba grabarlo en «Más compatible» (H.264/MP4).'); };
-  timeline.mediaThumbs = mediaThumbs; timeline.mediaNames = mediaNames;
+  timeline.mediaThumbs = mediaThumbs; timeline.mediaNames = mediaNames; timeline.mediaPeaks = mediaPeaks;
   timeline.setProject(project); timeline.clearSelection();
   onClipSelected(null);
+  // Precalcula las formas de onda de los audios ya presentes en el proyecto.
+  for (const a of project.tracks.audio) ensurePeaks(a.mediaId);
 
   els.projectName.value = project.name;
   updateDurationUI(); updateEmptyState();
@@ -267,6 +279,7 @@ async function handleMediaFiles(files) {
       mediaNames.set(rec.id, rec.name);
       if (rec.kind === 'audio') {
         project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: rec.duration || 5, start: engine.playhead, name: rec.name }));
+        ensurePeaks(rec.id);
       } else {
         const clip = createVideoClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height });
         project.tracks.video.push(clip); lastVideo = clip;
@@ -319,6 +332,7 @@ async function handleAudioFiles(files) {
       const rec = await importFile(audioFile);
       mediaNames.set(rec.id, rec.name);
       project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: rec.duration || 5, start: engine.playhead, name: rec.name }));
+      ensurePeaks(rec.id);
     } catch (e) { console.error(e); toast('No se pudo procesar el audio: ' + (e.message || '')); }
   }
   refresh(); pushHistory(); toast('¡Audio añadido!');
@@ -1241,6 +1255,7 @@ async function onVoiceStop() {
     mediaNames.set(rec.id, 'Voz en off');
     const dur = (isFinite(rec.duration) && rec.duration > 0.1 && rec.duration < 86400) ? rec.duration : Math.max(0.3, secs);
     project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: dur, start: voiceStart, name: 'Voz en off' }));
+    ensurePeaks(rec.id);
     refresh(); pushHistory(); closeSheets();
     toast('🎙️ Voz en off añadida');
   } catch (e) { console.error(e); toast('No se pudo guardar la voz'); }

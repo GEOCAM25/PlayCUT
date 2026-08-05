@@ -336,7 +336,7 @@ function bindToolbar() {
       case 'add-audio': els.fileAudio.click(); break;
       case 'voice': openVoiceSheet(); break;
       case 'add-text': addTextAtPlayhead(false); break;
-      case 'add-sticker': addTextAtPlayhead(true); break;
+      case 'add-sticker': openStickerSheet(); break;
       case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
       case 'split': splitAtPlayhead(); break;
@@ -383,6 +383,28 @@ function getSelectedClip() {
   const track = timeline.selectedTrack;
   const clip = (project.tracks[track] || []).find(c => c.id === timeline.selectedId);
   return clip ? { clip, track } : null;
+}
+
+const EMOJIS = ['😀', '😂', '🥰', '😎', '😭', '😱', '🤔', '😴', '🤩', '🥳', '😍', '🤣', '😤', '🙄', '😇', '🤗', '🥺', '😏', '🔥', '✨', '⭐', '🌟', '💫', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '💯', '👍', '👎', '👏', '🙌', '🙏', '🤙', '👀', '💪', '🎉', '🎊', '🎈', '🎁', '👑', '💎', '💰', '⚡', '💥', '💦', '🌈', '☀️', '🌙', '⚽', '🏆', '🎵', '🎮', '📌', '✅', '❌', '❓', '❗', '💤', '🍕', '🍔', '🌮', '🍟', '🐶', '🐱', '🦄'];
+function buildEmojiGrid() {
+  const grid = $('#emoji-grid'); if (!grid || grid.childElementCount) return;
+  for (const e of EMOJIS) {
+    const b = document.createElement('button');
+    b.className = 'emoji-item'; b.textContent = e; b.type = 'button';
+    b.addEventListener('click', () => addSticker(e));
+    grid.appendChild(b);
+  }
+}
+function openStickerSheet() { buildEmojiGrid(); openSheet('sheet-sticker'); }
+function addSticker(emoji) {
+  pushHistory();
+  const start = engine.playhead;
+  const total = projectDuration(project);
+  const end = Math.min(start + 3, total > start ? total : start + 3);
+  const clip = createTextClip({ text: emoji, start, end: end > start ? end : start + 3, sticker: true });
+  project.tracks.text.push(clip);
+  refresh(); pushHistory(); timeline.select(clip.id, 'text'); closeSheets();
+  haptic(10); toast('Sticker añadido — arrástralo o pellízcalo para cambiar tamaño');
 }
 
 function addTextAtPlayhead(sticker) {
@@ -896,10 +918,13 @@ function openTextSheet(clip) {
   $('#out-texty').textContent = Math.round((clip.y ?? 0.8) * 100) + '%';
   $('#out-textx').textContent = Math.round((clip.x ?? 0.5) * 100) + '%';
   $('#out-textrot').textContent = (clip.rotate || 0) + '°';
+  set('#text-ls', clip.letterSpacing || 0);
+  $('#out-textls').textContent = clip.letterSpacing || 0;
   $$('#text-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === clip.color));
   setActive('#text-fonts', 'font', clip.font || 'sans');
   setActive('#text-bg', 'bg', clip.bg || 'none');
   setActive('#text-anim', 'anim', clip.animIn || 'none');
+  const sh = $('#text-effects [data-toggle=shadow]'); if (sh) sh.classList.toggle('active', !!clip.shadow);
   openSheet('sheet-text');
 }
 function bindText() {
@@ -910,13 +935,21 @@ function bindText() {
     textTarget.y = (+$('#text-y').value) / 100;
     textTarget.x = (+$('#text-x').value) / 100;
     textTarget.rotate = +$('#text-rot').value;
+    textTarget.letterSpacing = +$('#text-ls').value;
     $('#out-textsize').textContent = textTarget.size;
     $('#out-texty').textContent = $('#text-y').value + '%';
     $('#out-textx').textContent = $('#text-x').value + '%';
     $('#out-textrot').textContent = $('#text-rot').value + '°';
+    $('#out-textls').textContent = $('#text-ls').value;
     engine.render(engine.playhead); timeline.render(); scheduleSave();
   };
-  ['#text-content', '#text-size', '#text-y', '#text-x', '#text-rot'].forEach(s => $(s).addEventListener('input', apply));
+  ['#text-content', '#text-size', '#text-y', '#text-x', '#text-rot', '#text-ls'].forEach(s => $(s).addEventListener('input', apply));
+  const fx = $('#text-effects');
+  if (fx) fx.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-toggle]'); if (!b || !textTarget) return;
+    if (b.dataset.toggle === 'shadow') { textTarget.shadow = !textTarget.shadow; b.classList.toggle('active', !!textTarget.shadow); }
+    engine.render(engine.playhead); scheduleSave();
+  });
   $('#text-colors').addEventListener('click', (e) => {
     const sw = e.target.closest('.swatch'); if (!sw || !textTarget) return;
     textTarget.color = sw.dataset.color;
@@ -1024,6 +1057,7 @@ function bindExport() {
       $('#export-preview').src = url;
       const link = $('#export-download');
       link.href = url; link.download = `${sanitize(project.name)}_${h}p.${ext}`;
+      lastExportBlob = blob; lastExportName = `${sanitize(project.name)}_${h}p.${ext}`;
       $('#export-progress').hidden = true; $('#export-done').hidden = false;
       // Si el archivo es demasiado pequeño para su duración, el equipo no pudo
       // codificar esa resolución en tiempo real: avisa y sugiere bajar calidad.
@@ -1034,7 +1068,26 @@ function bindExport() {
       }
     } catch (e) { console.error(e); toast('Error al exportar: ' + (e.message || e)); closeSheets(); }
   });
+
+  // Compartir el vídeo exportado directamente (WhatsApp, Fotos, etc.)
+  const shareBtn = $('#export-share');
+  if (shareBtn) {
+    const canShareFiles = !!(navigator.canShare && navigator.share);
+    shareBtn.hidden = !canShareFiles;
+    shareBtn.addEventListener('click', async () => {
+      if (!lastExportBlob) return;
+      const file = new File([lastExportBlob], lastExportName || 'playcut.mp4', { type: lastExportBlob.type || 'video/mp4' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: project.name || 'PlayCUT' });
+        } else {
+          toast('Tu dispositivo no permite compartir el archivo directamente. Usa Descargar.');
+        }
+      } catch (e) { if (e && e.name !== 'AbortError') toast('No se pudo compartir'); }
+    });
+  }
 }
+let lastExportBlob = null, lastExportName = '';
 function sanitize(name) { return String(name).replace(/[^\w\-]+/g, '_').slice(0, 40) || 'playcut'; }
 
 // ==================================================================

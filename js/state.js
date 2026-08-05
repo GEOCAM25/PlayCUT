@@ -116,9 +116,11 @@ export function createTextClip({ text = 'Texto', start = 0, end = 3, sticker = f
     font: 'sans',        // sans | serif | round | mono | display
     bg: 'none',          // none | black | white | color
     bgColor: '#ff3b6b',
-    animIn: 'none',      // none | fade | pop | slideup | slidedown
+    animIn: 'none',      // none | fade | pop | slideup | slidedown | typewriter | bounce
     animOut: 'none',
     rotate: 0,
+    shadow: false,
+    letterSpacing: 0,
     isSticker: sticker,
   };
 }
@@ -159,6 +161,7 @@ export function normalizeProject(p) {
     c.bold = c.bold ?? true; c.font = c.font || 'sans'; c.bg = c.bg || 'none';
     c.bgColor = c.bgColor || '#ff3b6b'; c.animIn = c.animIn || 'none';
     c.animOut = c.animOut || 'none'; c.rotate = c.rotate ?? 0; c.isSticker = c.isSticker ?? false;
+    c.shadow = c.shadow ?? false; c.letterSpacing = c.letterSpacing ?? 0;
   }
   return p;
 }

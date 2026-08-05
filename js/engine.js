@@ -454,20 +454,23 @@ export class Engine {
     const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
     const dur = tc.end - tc.start;
     const local = t - tc.start;
+    const back = (k) => { const c = k - 1; return 1 + 2.7 * c * c * c + 1.7 * c * c; }; // overshoot
     // Animaciones de entrada/salida.
-    let alpha = 1, sx = 1, ty = 0;
+    let alpha = 1, sx = 1, ty = 0, textOverride = null;
     const IN = Math.min(0.4, dur / 2), OUT = Math.min(0.4, dur / 2);
     if (tc.animIn !== 'none' && local < IN) {
-      const k = local / IN;
+      const k = Math.max(0, Math.min(1, local / IN));
       if (tc.animIn === 'fade') alpha = k;
       else if (tc.animIn === 'pop') { alpha = k; sx = 0.6 + 0.4 * k; }
+      else if (tc.animIn === 'bounce') { alpha = Math.min(1, k * 2); sx = back(k); }
       else if (tc.animIn === 'slideup') { alpha = k; ty = (1 - k) * H * 0.08; }
       else if (tc.animIn === 'slidedown') { alpha = k; ty = -(1 - k) * H * 0.08; }
+      else if (tc.animIn === 'typewriter') { const full = String(tc.text); textOverride = full.slice(0, Math.ceil(k * full.length)); }
     }
     if (tc.animOut !== 'none' && local > dur - OUT) {
-      const k = (dur - local) / OUT;
+      const k = Math.max(0, Math.min(1, (dur - local) / OUT));
       if (tc.animOut === 'fade') alpha = Math.min(alpha, k);
-      else if (tc.animOut === 'pop') { alpha = Math.min(alpha, k); sx = 0.6 + 0.4 * k; }
+      else if (tc.animOut === 'pop' || tc.animOut === 'bounce') { alpha = Math.min(alpha, k); sx = 0.6 + 0.4 * k; }
       else if (tc.animOut === 'slideup') { alpha = Math.min(alpha, k); ty = -(1 - k) * H * 0.08; }
       else if (tc.animOut === 'slidedown') { alpha = Math.min(alpha, k); ty = (1 - k) * H * 0.08; }
     }
@@ -475,14 +478,15 @@ export class Engine {
     const size = tc.size * (H / 1920);
     const font = FONTS[tc.font] || FONTS.sans;
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = Math.max(0, alpha);
     ctx.translate(tc.x * W, tc.y * H + ty);
     if (tc.rotate) ctx.rotate(tc.rotate * Math.PI / 180);
     ctx.scale(sx, sx);
     ctx.font = `${tc.bold ? '800' : '500'} ${size}px ${font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const lines = String(tc.text).split('\n');
+    try { ctx.letterSpacing = ((tc.letterSpacing || 0) * (H / 1920)) + 'px'; } catch {}
+    const lines = String(textOverride != null ? textOverride : tc.text).split('\n');
     const lineH = size * 1.22;
     let startY = -(lines.length - 1) * lineH / 2;
 
@@ -495,6 +499,13 @@ export class Engine {
       ctx.fillStyle = tc.bg === 'black' ? 'rgba(0,0,0,.65)' : tc.bg === 'white' ? 'rgba(255,255,255,.85)' : tc.bgColor;
       this._roundRect(ctx, -bw / 2, startY - lineH / 2 - padY + lineH / 2, bw, bh, size * 0.18);
       ctx.fill();
+    }
+
+    if (tc.shadow) {
+      ctx.shadowColor = 'rgba(0,0,0,.65)';
+      ctx.shadowBlur = size * 0.28;
+      ctx.shadowOffsetX = size * 0.05;
+      ctx.shadowOffsetY = size * 0.09;
     }
 
     for (const line of lines) {

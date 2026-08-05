@@ -58,6 +58,7 @@ export class Timeline {
     if (!this.project) return;
     const total = Math.max(projectDuration(this.project), 3);
     this.root.style.width = (total * this.pps + window.innerWidth) + 'px';
+    this._renderRuler(total);
     this._renderVideoTrack();
     this._renderOverlayTrack();
     this._renderAudioTrack();
@@ -143,6 +144,25 @@ export class Timeline {
       this._makeMovable(el, clip, 'text');
       track.appendChild(el);
     });
+  }
+
+  _renderRuler(total) {
+    const ruler = document.getElementById('timeline-ruler');
+    if (!ruler) return;
+    ruler.innerHTML = '';
+    const targets = [0.5, 1, 2, 5, 10, 15, 30, 60, 120];
+    let step = targets[targets.length - 1];
+    for (const s of targets) { if (s * this.pps >= 58) { step = s; break; } }
+    for (let t = 0; t <= total + step; t += step) {
+      const tick = document.createElement('div');
+      tick.className = 'ruler-tick';
+      tick.style.left = (t * this.pps) + 'px';
+      const label = document.createElement('span');
+      const m = Math.floor(t / 60), s = t % 60;
+      label.textContent = m ? `${m}:${String(Math.floor(s)).padStart(2, '0')}` : (step < 1 ? t.toFixed(1) : Math.round(t) + 's');
+      tick.appendChild(label);
+      ruler.appendChild(tick);
+    }
   }
 
   _hint(text) { const s = document.createElement('span'); s.className = 'track-empty-hint'; s.textContent = text; return s; }

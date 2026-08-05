@@ -84,6 +84,7 @@
       </div>
       <div class="timeline-scroll" id="timeline-scroll">
         <div class="timeline" id="timeline">
+          <div class="timeline-ruler" id="timeline-ruler"></div>
           <div class="track track-video" id="track-video" data-track="video"></div>
           <div class="track track-overlay" id="track-overlay" data-track="overlay"></div>
           <div class="track track-audio" id="track-audio" data-track="audio"></div>
@@ -394,8 +395,15 @@
         <button class="chip" data-anim="none">Ninguna</button>
         <button class="chip" data-anim="fade">Fundido</button>
         <button class="chip" data-anim="pop">Pop</button>
+        <button class="chip" data-anim="bounce">Rebote</button>
+        <button class="chip" data-anim="typewriter">Máquina</button>
         <button class="chip" data-anim="slideup">Subir</button>
         <button class="chip" data-anim="slidedown">Bajar</button>
+      </div>
+
+      <p class="sheet-sub">Efecto</p>
+      <div class="opt-chips" id="text-effects">
+        <button class="chip" data-toggle="shadow">Sombra</button>
       </div>
 
       <div class="sliders">
@@ -407,11 +415,23 @@
           <input id="text-x" type="range" min="0" max="100" value="50" /></label>
         <label>Rotación <output id="out-textrot">0°</output>
           <input id="text-rot" type="range" min="-180" max="180" value="0" /></label>
+        <label>Espaciado entre letras <output id="out-textls">0</output>
+          <input id="text-ls" type="range" min="0" max="40" value="0" /></label>
       </div>
       <div class="sheet-buttons">
         <button class="ghost-btn" id="text-delete">Borrar</button>
         <button class="primary-btn" data-close-sheet>Listo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: STICKERS (emojis) ===================== -->
+  <div id="sheet-sticker" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Stickers</h3>
+      <div class="emoji-grid" id="emoji-grid"></div>
+      <button class="ghost-btn full" data-close-sheet>Cerrar</button>
     </div>
   </div>
 
@@ -505,7 +525,8 @@
       <div id="export-done" hidden>
         <p class="done-msg">✅ ¡Listo!</p>
         <video id="export-preview" controls playsinline class="export-video"></video>
-        <a id="export-download" class="primary-btn full" download>Descargar / Guardar</a>
+        <button id="export-share" class="primary-btn full" hidden>📤 Compartir a otras apps</button>
+        <a id="export-download" class="primary-btn full" download>⬇️ Descargar / Guardar</a>
         <button class="ghost-btn full" data-close-sheet>Cerrar</button>
       </div>
     </div>

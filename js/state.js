@@ -56,6 +56,8 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
     filterAmt: 1,        // intensidad del filtro (0..1)
     temp: 0, hue: 0, vignette: 0, // temperatura (-100..100), tono (-180..180), viñeta (0..100)
+    // animación de entrada/salida del clip
+    animIn: 'none', animOut: 'none', animInDur: 0.5, animOutDur: 0.5,
     // movimiento / velocidad
     speed: 1,
     motion: 'none',     // none | zoomIn | zoomOut | panL | panR | panU | panD
@@ -85,6 +87,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
     filterAmt: 1, temp: 0, hue: 0, vignette: 0,
+    animIn: 'none', animOut: 'none', animInDur: 0.5, animOutDur: 0.5,
     speed: 1, motion: 'none',
     fillMode: 'contain',
     scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
@@ -146,6 +149,8 @@ export function normalizeProject(p) {
     c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0;
+    c.animIn = c.animIn || 'none'; c.animOut = c.animOut || 'none';
+    c.animInDur = c.animInDur ?? 0.5; c.animOutDur = c.animOutDur ?? 0.5;
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
     if (!c.transition) c.transition = { type: 'none', duration: 0.6 };
   }
@@ -159,6 +164,8 @@ export function normalizeProject(p) {
     c.blend = c.blend || 'normal';
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0;
+    c.animIn = c.animIn || 'none'; c.animOut = c.animOut || 'none';
+    c.animInDur = c.animInDur ?? 0.5; c.animOutDur = c.animOutDur ?? 0.5;
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
   }
   for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }

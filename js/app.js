@@ -582,8 +582,12 @@ function openAdjustSheet(clip, track) {
   // La viñeta solo afecta al clip de fondo (no a la superposición).
   labelFor('#adj-vignette').style.display = track === 'video' ? '' : 'none';
 
+  set('#adj-animindur', clip.animInDur ?? 0.5);
+  set('#adj-animoutdur', clip.animOutDur ?? 0.5);
   setActive('#filters-row', 'filter', clip.filter || 'none');
   setActive('#motion-row', 'motion', clip.motion || 'none');
+  setActive('#anim-in-row', 'animin', clip.animIn || 'none');
+  setActive('#anim-out-row', 'animout', clip.animOut || 'none');
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
   updateFillUI(clip);
   // Mezcla: solo para superposiciones.
@@ -652,6 +656,8 @@ function updateAdjustOutputs() {
   $('#out-hue').textContent = $('#adj-hue').value + '°';
   $('#out-vignette').textContent = $('#adj-vignette').value + '%';
   $('#out-opacity').textContent = $('#adj-opacity').value + '%';
+  $('#out-animindur').textContent = (+$('#adj-animindur').value).toFixed(1) + 's';
+  $('#out-animoutdur').textContent = (+$('#adj-animoutdur').value).toFixed(1) + 's';
 }
 
 function bindAdjust() {
@@ -670,13 +676,27 @@ function bindAdjust() {
     c.hue = +$('#adj-hue').value;
     c.vignette = +$('#adj-vignette').value;
     c.opacity = (+$('#adj-opacity').value) / 100;
+    c.animInDur = +$('#adj-animindur').value;
+    c.animOutDur = +$('#adj-animoutdur').value;
     if (c.keyframes && c.keyframes.length) { upsertKeyframe(c, adjustTarget.track); updateKfUI(c); }
     updateAdjustOutputs();
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
   };
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
-   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-opacity']
+   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-opacity',
+   '#adj-animindur', '#adj-animoutdur']
     .forEach(sel => $(sel).addEventListener('input', apply));
+
+  $('#anim-in-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-animin]'); if (!b || !adjustTarget) return;
+    adjustTarget.clip.animIn = b.dataset.animin; setActive('#anim-in-row', 'animin', b.dataset.animin);
+    engine.render(engine.playhead); scheduleSave();
+  });
+  $('#anim-out-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-animout]'); if (!b || !adjustTarget) return;
+    adjustTarget.clip.animOut = b.dataset.animout; setActive('#anim-out-row', 'animout', b.dataset.animout);
+    engine.render(engine.playhead); scheduleSave();
+  });
 
   $('#filters-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-filter]'); if (!b || !adjustTarget) return;

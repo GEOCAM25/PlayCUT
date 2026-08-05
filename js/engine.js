@@ -269,8 +269,12 @@ export class Engine {
     const tRot = kf ? kf.rotate : (clip.rotate || 0);
     const tOpacity = kf ? kf.opacity : (clip.opacity ?? 1);
 
+    // Animación de entrada/salida del clip (fade, zoom, deslizar, pop, giro).
+    const cdur = extra.isOverlay ? overlayDuration(clip) : clipDuration(clip);
+    const anim = this._clipAnim(clip, local, cdur);
+
     this.ctx.save();
-    this.ctx.globalAlpha = tOpacity * (extra.alpha ?? 1);
+    this.ctx.globalAlpha = tOpacity * (extra.alpha ?? 1) * anim.alpha;
     let filter = clipFilterString(clip);
     if (extra.filter) filter += ' ' + extra.filter;
     this.ctx.filter = filter;
@@ -282,10 +286,10 @@ export class Engine {
       this.ctx.clip();
     }
 
-    const totalScale = tScale * m.scale * (extra.scale ?? 1);
-    const tx = tOx * W + m.dx * W + (extra.tx || 0);
-    const ty = tOy * H + m.dy * H + (extra.ty || 0);
-    const rot = (tRot + (extra.rotate || 0)) * Math.PI / 180;
+    const totalScale = tScale * m.scale * (extra.scale ?? 1) * anim.scale;
+    const tx = tOx * W + m.dx * W + (extra.tx || 0) + anim.dx * W;
+    const ty = tOy * H + m.dy * H + (extra.ty || 0) + anim.dy * H;
+    const rot = (tRot + (extra.rotate || 0) + anim.rot) * Math.PI / 180;
 
     const chromaOn = !!(clip.chroma && clip.chroma.on);
     const blended = extra.isOverlay && clip.blend && clip.blend !== 'normal';
@@ -297,6 +301,41 @@ export class Engine {
     }
     this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot, fitOpts);
     this.ctx.restore();
+  }
+
+  // Combina la animación de entrada y salida del clip en el tiempo local.
+  _clipAnim(clip, local, dur) {
+    let a = { alpha: 1, scale: 1, dx: 0, dy: 0, rot: 0 };
+    if (!dur || dur <= 0) return a;
+    const din = Math.min(clip.animInDur || 0.5, dur / 2);
+    const dout = Math.min(clip.animOutDur || 0.5, dur / 2);
+    if (clip.animIn && clip.animIn !== 'none' && local < din) {
+      const p = Math.max(0, Math.min(1, local / din));
+      this._mergeAnim(a, clip.animIn, p);
+    }
+    if (clip.animOut && clip.animOut !== 'none' && local > dur - dout) {
+      const p = Math.max(0, Math.min(1, (dur - local) / dout)); // 1 → 0 hacia el final
+      this._mergeAnim(a, clip.animOut, p);
+    }
+    return a;
+  }
+
+  // q: 0 = extremo (oculto/fuera), 1 = posición normal. Aplica un easing suave.
+  _mergeAnim(acc, type, q) {
+    const e = 1 - Math.pow(1 - q, 3); // easeOutCubic
+    const inv = 1 - e;
+    switch (type) {
+      case 'fade': acc.alpha *= e; break;
+      case 'pop': acc.alpha *= Math.min(1, q * 2); acc.scale *= 0.35 + 0.65 * e; break;
+      case 'zoom': acc.scale *= 1 + 0.4 * inv; acc.alpha *= Math.min(1, q * 1.5); break;
+      case 'zoomout': acc.scale *= 1 - 0.35 * inv; acc.alpha *= Math.min(1, q * 1.5); break;
+      case 'slidel': acc.alpha *= e; acc.dx += -inv; break;
+      case 'slider': acc.alpha *= e; acc.dx += inv; break;
+      case 'slideu': acc.alpha *= e; acc.dy += -inv; break;
+      case 'slided': acc.alpha *= e; acc.dy += inv; break;
+      case 'spin': acc.alpha *= e; acc.rot += inv * 180; acc.scale *= 0.6 + 0.4 * e; break;
+      case 'bounce': { const b = Math.sin(q * Math.PI) * (1 - q); acc.dy += -0.12 * b; acc.alpha *= Math.min(1, q * 2); break; }
+    }
   }
 
   // Interpola la transformación entre keyframes en el tiempo local del clip.

@@ -166,6 +166,9 @@ export class Engine {
     if (vs) {
       if (vs.b) this.drawTransition(vs);
       else this.drawClip(vs.a, vs.localA, {});
+      // Viñeta del clip base (oscurece las esquinas), bajo la superposición y el texto.
+      const vAmt = vs.b ? Math.max(vs.a.vignette || 0, vs.b.vignette || 0) : (vs.a.vignette || 0);
+      if (vAmt) this._drawVignette(vAmt / 100);
     }
 
     // Capa superpuesta (PiP), encima del video principal, con modo de mezcla.
@@ -188,6 +191,19 @@ export class Engine {
     if (this._captureTrack && this._captureTrack.requestFrame) {
       try { this._captureTrack.requestFrame(); } catch {}
     }
+  }
+
+  // Dibuja una viñeta radial sobre todo el fotograma.
+  _drawVignette(amt) {
+    const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+    ctx.save();
+    ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.33, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.6, `rgba(0,0,0,${(amt * 0.25).toFixed(3)})`);
+    g.addColorStop(1, `rgba(0,0,0,${(amt * 0.85).toFixed(3)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   // Progreso 0..1 dentro del propio clip (para movimiento).

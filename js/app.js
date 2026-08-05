@@ -570,12 +570,17 @@ function openAdjustSheet(clip, track) {
   set('#adj-brightness', Math.round((clip.brightness ?? 1) * 100));
   set('#adj-contrast', Math.round((clip.contrast ?? 1) * 100));
   set('#adj-saturation', Math.round((clip.saturation ?? 1) * 100));
+  set('#adj-temp', clip.temp ?? 0);
+  set('#adj-hue', clip.hue ?? 0);
+  set('#adj-vignette', clip.vignette ?? 0);
   set('#adj-opacity', Math.round((clip.opacity ?? 1) * 100));
 
   labelFor('#adj-volume').style.display = hasVolume ? '' : 'none';
   showLabels('only-audio', track === 'audio');
   showLabels('only-image', isImage);
   showLabels('only-visual', isVisual);
+  // La viñeta solo afecta al clip de fondo (no a la superposición).
+  labelFor('#adj-vignette').style.display = track === 'video' ? '' : 'none';
 
   setActive('#filters-row', 'filter', clip.filter || 'none');
   setActive('#motion-row', 'motion', clip.motion || 'none');
@@ -643,6 +648,9 @@ function updateAdjustOutputs() {
   $('#out-brightness').textContent = $('#adj-brightness').value + '%';
   $('#out-contrast').textContent = $('#adj-contrast').value + '%';
   $('#out-saturation').textContent = $('#adj-saturation').value + '%';
+  $('#out-temp').textContent = $('#adj-temp').value;
+  $('#out-hue').textContent = $('#adj-hue').value + '°';
+  $('#out-vignette').textContent = $('#adj-vignette').value + '%';
   $('#out-opacity').textContent = $('#adj-opacity').value + '%';
 }
 
@@ -658,13 +666,16 @@ function bindAdjust() {
     c.brightness = (+$('#adj-brightness').value) / 100;
     c.contrast = (+$('#adj-contrast').value) / 100;
     c.saturation = (+$('#adj-saturation').value) / 100;
+    c.temp = +$('#adj-temp').value;
+    c.hue = +$('#adj-hue').value;
+    c.vignette = +$('#adj-vignette').value;
     c.opacity = (+$('#adj-opacity').value) / 100;
     if (c.keyframes && c.keyframes.length) { upsertKeyframe(c, adjustTarget.track); updateKfUI(c); }
     updateAdjustOutputs();
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
   };
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
-   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-opacity']
+   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-opacity']
     .forEach(sel => $(sel).addEventListener('input', apply));
 
   $('#filters-row').addEventListener('click', (e) => {

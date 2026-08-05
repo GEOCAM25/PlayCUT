@@ -54,6 +54,8 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     fadeOut: 0,
     // color
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
+    filterAmt: 1,        // intensidad del filtro (0..1)
+    temp: 0, hue: 0, vignette: 0, // temperatura (-100..100), tono (-180..180), viñeta (0..100)
     // movimiento / velocidad
     speed: 1,
     motion: 'none',     // none | zoomIn | zoomOut | panL | panR | panU | panD
@@ -82,6 +84,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     srcWidth: width, srcHeight: height, srcDuration: dur,
     volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
+    filterAmt: 1, temp: 0, hue: 0, vignette: 0,
     speed: 1, motion: 'none',
     fillMode: 'contain',
     scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
@@ -142,6 +145,7 @@ export function normalizeProject(p) {
     c.scale = c.scale ?? 1; c.offsetX = c.offsetX ?? 0; c.offsetY = c.offsetY ?? 0; c.rotate = c.rotate ?? 0;
     c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
+    c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0;
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
     if (!c.transition) c.transition = { type: 'none', duration: 0.6 };
   }
@@ -154,6 +158,7 @@ export function normalizeProject(p) {
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
     c.blend = c.blend || 'normal';
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
+    c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0;
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
   }
   for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; }
@@ -286,6 +291,15 @@ export function clipFilterString(clip) {
     case 'rose': f += ' sepia(.25) saturate(1.4) hue-rotate(300deg) brightness(1.05)'; break;
     case 'sharp': f += ' contrast(1.25) brightness(1.05) saturate(1.15)'; break;
   }
+  // Temperatura de color: cálido (+) añade tono sepia y gira hacia el rojo,
+  // frío (−) gira hacia el azul y sube un poco el brillo.
+  if (clip.temp) {
+    const t = clip.temp / 100;
+    if (t > 0) f += ` sepia(${(t * 0.5).toFixed(3)}) saturate(${(1 + t * 0.25).toFixed(3)}) hue-rotate(${(-t * 12).toFixed(1)}deg)`;
+    else f += ` hue-rotate(${(-t * 18).toFixed(1)}deg) brightness(${(1 - t * 0.04).toFixed(3)})`;
+  }
+  // Tono (hue): gira toda la rueda de color.
+  if (clip.hue) f += ` hue-rotate(${clip.hue}deg)`;
   return f;
 }
 

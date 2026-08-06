@@ -489,6 +489,40 @@ export class Engine {
         this.drawClip(a, localA, {});
         this.drawClip(b, localB, { clipRect: { x: 1 - p, y: 0, w: p, h: 1 } });
         break;
+      case 'wipeup':
+        this.drawClip(a, localA, {});
+        this.drawClip(b, localB, { clipRect: { x: 0, y: 0, w: 1, h: p } });
+        break;
+      case 'wipedown':
+        this.drawClip(a, localA, {});
+        this.drawClip(b, localB, { clipRect: { x: 0, y: 1 - p, w: 1, h: p } });
+        break;
+      case 'zoomout':
+        this.drawClip(a, localA, { scale: 1 + 0.5 * p, alpha: 1 - p });
+        this.drawClip(b, localB, { alpha: p, scale: 0.85 + 0.15 * p });
+        break;
+      case 'whip': {
+        const k = 1.15;
+        this.drawClip(a, localA, { tx: -p * W * k, filter: `blur(${p * 14}px)` });
+        this.drawClip(b, localB, { tx: (1 - p) * W * k, filter: `blur(${(1 - p) * 14}px)` });
+        break;
+      }
+      case 'iris': {
+        this.drawClip(a, localA, {});
+        const R = Math.max(0.001, Math.hypot(W, H) / 2 * p);
+        ctx.save();
+        ctx.beginPath(); ctx.arc(W / 2, H / 2, R, 0, Math.PI * 2); ctx.clip();
+        this.drawClip(b, localB, {});
+        ctx.restore();
+        break;
+      }
+      case 'glitch': {
+        this.drawClip(a, localA, { alpha: 1 - p });
+        const amp = (1 - Math.abs(p - 0.5) * 2) * 0.05 + 0.01;
+        const j = (Math.random() - 0.5) * amp * W;
+        this.drawClip(b, localB, { alpha: p, tx: j });
+        break;
+      }
       case 'blur':
         this.drawClip(a, localA, { filter: `blur(${p * 18}px)`, alpha: 1 });
         this.drawClip(b, localB, { filter: `blur(${(1 - p) * 18}px)`, alpha: p });

@@ -106,6 +106,7 @@
       <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
       <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="freeze"><i>🧊</i><span>Congelar</span></button>
+      <button class="tool" data-action="paste" id="btn-paste" hidden><i>📥</i><span>Pegar</span></button>
     </nav>
 
     <!-- Panel contextual de clip seleccionado -->
@@ -117,6 +118,7 @@
       <button class="tool" data-action="clip-anim"><i>✨</i><span>Animar</span></button>
       <button class="tool" data-action="clip-split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="clip-duplicate"><i>⧉</i><span>Duplicar</span></button>
+      <button class="tool" data-action="clip-copy"><i>📋</i><span>Copiar</span></button>
       <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
       <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
       <button class="tool danger" data-action="clip-delete"><i>🗑️</i><span>Borrar</span></button>
@@ -304,6 +306,8 @@
           <input id="adj-hue" type="range" min="-180" max="180" value="0" /></label>
         <label class="only-visual">Viñeta <output id="out-vignette">0%</output>
           <input id="adj-vignette" type="range" min="0" max="100" value="0" /></label>
+        <label class="only-visual">Grano <output id="out-grain">0%</output>
+          <input id="adj-grain" type="range" min="0" max="100" value="0" /></label>
         <label class="only-visual">Opacidad <output id="out-opacity">100%</output>
           <input id="adj-opacity" type="range" min="0" max="100" value="100" /></label>
       </div>
@@ -456,6 +460,10 @@
         <button class="chip" data-preset="subtitle">Subtítulo</button>
         <button class="chip" data-preset="title">Título</button>
         <button class="chip" data-preset="caption">Cartel</button>
+        <button class="chip" data-preset="neon">Neón</button>
+        <button class="chip" data-preset="meme">Meme</button>
+        <button class="chip" data-preset="glow">Brillo</button>
+        <button class="chip" data-preset="retro">Retro</button>
       </div>
 
       <p class="sheet-sub">Animación <span class="badge-pro">PRO</span></p>

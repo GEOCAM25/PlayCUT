@@ -355,6 +355,7 @@ function bindToolbar() {
       case 'ratio': openRatioSheet(); break;
       case 'split': splitAtPlayhead(); break;
       case 'freeze': freezeFrame(); break;
+      case 'paste': pasteClip(); break;
     }
   });
 
@@ -386,6 +387,7 @@ function bindToolbar() {
         break;
       case 'clip-split': splitAtPlayhead(); break;
       case 'clip-duplicate': duplicateClip(sel); break;
+      case 'clip-copy': copyClip(sel); break;
       case 'clip-left': moveClip(sel, -1); break;
       case 'clip-right': moveClip(sel, 1); break;
       case 'clip-delete': deleteClip(sel); break;
@@ -514,6 +516,37 @@ function deleteClip(sel) {
   timeline.clearSelection(); onClipSelected(null); refresh(); haptic(25); toast('Clip borrado');
 }
 
+// ---------- Copiar / pegar clip ----------
+let clipboard = null; // { track, clip }
+function copyClip(sel) {
+  clipboard = { track: sel.track, clip: JSON.parse(JSON.stringify(sel.clip)) };
+  $('#btn-paste').hidden = false;
+  haptic(10); toast('Copiado — usa «Pegar»');
+}
+function pasteClip() {
+  if (!clipboard) { toast('Primero copia un clip'); return; }
+  pushHistory();
+  const track = clipboard.track;
+  const clip = JSON.parse(JSON.stringify(clipboard.clip));
+  clip.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const arr = project.tracks[track];
+  if (track === 'video') {
+    // inserta después del clip que está bajo el cursor (o al final).
+    const at = videoClipAt(arr, engine.playhead);
+    if (clip.type === 'video') { clip.transition = { type: 'none', duration: 0.6 }; }
+    arr.splice(at ? at.index + 1 : arr.length, 0, clip);
+    if (clip.mediaId) ensurePeaks(clip.mediaId);
+  } else {
+    // overlay / audio / text: empieza en el cursor.
+    const t = engine.playhead;
+    if (track === 'text') { const d = clip.end - clip.start; clip.start = t; clip.end = t + d; }
+    else clip.start = t;
+    if (track === 'audio' && clip.mediaId) ensurePeaks(clip.mediaId);
+    arr.push(clip);
+  }
+  refresh(); timeline.select(clip.id, track); haptic(15); toast('Pegado en el cursor');
+}
+
 function onClipSelected(clip) {
   const has = !!clip;
   els.toolbarMain.hidden = has;
@@ -610,14 +643,16 @@ function openAdjustSheet(clip, track) {
   set('#adj-temp', clip.temp ?? 0);
   set('#adj-hue', clip.hue ?? 0);
   set('#adj-vignette', clip.vignette ?? 0);
+  set('#adj-grain', clip.grain ?? 0);
   set('#adj-opacity', Math.round((clip.opacity ?? 1) * 100));
 
   labelFor('#adj-volume').style.display = hasVolume ? '' : 'none';
   showLabels('only-audio', track === 'audio');
   showLabels('only-image', isImage);
   showLabels('only-visual', isVisual);
-  // La viñeta solo afecta al clip de fondo (no a la superposición).
+  // La viñeta y el grano solo afectan al clip de fondo (no a la superposición).
   labelFor('#adj-vignette').style.display = track === 'video' ? '' : 'none';
+  labelFor('#adj-grain').style.display = track === 'video' ? '' : 'none';
 
   set('#adj-animindur', clip.animInDur ?? 0.5);
   set('#adj-animoutdur', clip.animOutDur ?? 0.5);
@@ -694,6 +729,7 @@ function updateAdjustOutputs() {
   $('#out-temp').textContent = $('#adj-temp').value;
   $('#out-hue').textContent = $('#adj-hue').value + '°';
   $('#out-vignette').textContent = $('#adj-vignette').value + '%';
+  $('#out-grain').textContent = $('#adj-grain').value + '%';
   $('#out-opacity').textContent = $('#adj-opacity').value + '%';
   $('#out-animindur').textContent = (+$('#adj-animindur').value).toFixed(1) + 's';
   $('#out-animoutdur').textContent = (+$('#adj-animoutdur').value).toFixed(1) + 's';
@@ -714,6 +750,7 @@ function bindAdjust() {
     c.temp = +$('#adj-temp').value;
     c.hue = +$('#adj-hue').value;
     c.vignette = +$('#adj-vignette').value;
+    c.grain = +$('#adj-grain').value;
     c.opacity = (+$('#adj-opacity').value) / 100;
     c.animInDur = +$('#adj-animindur').value;
     c.animOutDur = +$('#adj-animoutdur').value;
@@ -722,7 +759,7 @@ function bindAdjust() {
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
   };
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
-   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-opacity',
+   '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-grain', '#adj-opacity',
    '#adj-animindur', '#adj-animoutdur']
     .forEach(sel => $(sel).addEventListener('input', apply));
 
@@ -1042,6 +1079,10 @@ function bindText() {
     if (b.dataset.preset === 'subtitle') { t.y = 0.86; t.size = 52; t.font = 'sans'; t.bold = true; t.bg = 'black'; t.stroke = false; t.animIn = 'fade'; t.animOut = 'fade'; }
     else if (b.dataset.preset === 'title') { t.y = 0.5; t.size = 128; t.font = 'display'; t.bg = 'none'; t.stroke = true; t.animIn = 'pop'; t.animOut = 'none'; }
     else if (b.dataset.preset === 'caption') { t.y = 0.2; t.size = 72; t.font = 'round'; t.bg = 'color'; t.stroke = false; t.animIn = 'slideup'; t.animOut = 'fade'; }
+    else if (b.dataset.preset === 'neon') { t.y = 0.5; t.size = 104; t.font = 'display'; t.color = '#00e5ff'; t.bg = 'none'; t.stroke = true; t.shadow = true; t.letterSpacing = 2; t.animIn = 'pop'; t.animOut = 'fade'; }
+    else if (b.dataset.preset === 'meme') { t.y = 0.14; t.size = 96; t.font = 'display'; t.color = '#ffffff'; t.bg = 'none'; t.stroke = true; t.shadow = false; t.letterSpacing = 0; t.animIn = 'none'; t.animOut = 'none'; }
+    else if (b.dataset.preset === 'glow') { t.y = 0.5; t.size = 88; t.font = 'round'; t.color = '#ffffff'; t.bg = 'none'; t.stroke = false; t.shadow = true; t.letterSpacing = 4; t.animIn = 'fade'; t.animOut = 'fade'; }
+    else if (b.dataset.preset === 'retro') { t.y = 0.8; t.size = 76; t.font = 'classic'; t.color = '#ffd23b'; t.bg = 'color'; t.bgColor = '#7c3aed'; t.stroke = false; t.shadow = false; t.letterSpacing = 3; t.animIn = 'slidedown'; t.animOut = 'fade'; }
     openTextSheet(t); // refresca controles
     engine.render(engine.playhead); timeline.render(); scheduleSave();
   });

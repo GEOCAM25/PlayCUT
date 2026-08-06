@@ -169,6 +169,8 @@ export class Engine {
       // Viñeta del clip base (oscurece las esquinas), bajo la superposición y el texto.
       const vAmt = vs.b ? Math.max(vs.a.vignette || 0, vs.b.vignette || 0) : (vs.a.vignette || 0);
       if (vAmt) this._drawVignette(vAmt / 100);
+      const gAmt = vs.b ? Math.max(vs.a.grain || 0, vs.b.grain || 0) : (vs.a.grain || 0);
+      if (gAmt) this._drawGrain(gAmt / 100);
     }
 
     // Capa superpuesta (PiP), encima del video principal, con modo de mezcla.
@@ -222,6 +224,34 @@ export class Engine {
       if (vs.b) this.drawTransition(vs); else this.drawClip(vs.a, vs.localA, {});
     } finally { this.canvas = savedCanvas; this.ctx = savedCtx; }
     return await new Promise((res) => off.toBlob(res, 'image/png'));
+  }
+
+  // Grano de película: superpone ruido (tejado en mosaico) desplazado cada
+  // fotograma. El patrón se genera una sola vez y se cachea.
+  _drawGrain(amt) {
+    if (!this._grainTile) {
+      const t = document.createElement('canvas'); t.width = t.height = 128;
+      const tctx = t.getContext('2d');
+      const img = tctx.createImageData(128, 128);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const v = (Math.random() * 255) | 0;
+        d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+      }
+      tctx.putImageData(img, 0, 0);
+      this._grainTile = t;
+    }
+    const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+    ctx.save();
+    ctx.filter = 'none';
+    ctx.globalAlpha = Math.min(0.5, amt * 0.5);
+    ctx.globalCompositeOperation = 'overlay';
+    const pat = ctx.createPattern(this._grainTile, 'repeat');
+    const ox = (Math.random() * 128) | 0, oy = (Math.random() * 128) | 0;
+    ctx.translate(-ox, -oy);
+    ctx.fillStyle = pat;
+    ctx.fillRect(0, 0, W + 128, H + 128);
+    ctx.restore();
   }
 
   // Progreso 0..1 dentro del propio clip (para movimiento).

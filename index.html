@@ -524,8 +524,14 @@
   <div id="sheet-color" class="sheet">
     <div class="sheet-inner">
       <div class="sheet-handle"></div>
-      <h3>Fondo de color</h3>
-      <p class="export-meta">Añade una tarjeta de color (para intros, títulos o separadores). Se añade al final del video.</p>
+      <h3>Fondos y plantillas</h3>
+      <p class="sheet-sub">Plantillas con título</p>
+      <div class="opt-grid two">
+        <button class="opt" id="btn-add-intro"><span class="opt-ico">🎬</span>Intro con título</button>
+        <button class="opt" id="btn-add-outro"><span class="opt-ico">🏁</span>Outro de cierre</button>
+      </div>
+      <p class="sheet-sub">Tarjeta de color</p>
+      <p class="export-meta">Añade una tarjeta de color (títulos o separadores). Se añade al final del video.</p>
       <div class="color-row" id="color-card-swatches">
         <button class="swatch" style="background:#000000" data-color="#000000"></button>
         <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
@@ -595,6 +601,9 @@
         <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
         <button class="swatch" style="background:#7c3aed" data-color="#7c3aed"></button>
       </div>
+      <p class="sheet-sub">Duración de fotos nuevas <output id="out-imgdur">3.0s</output></p>
+      <input id="set-imgdur" type="range" min="1" max="10" step="0.5" value="3" />
+      <p class="export-meta">Cuánto dura cada foto al importarla. No afecta a las ya añadidas.</p>
       <p class="sheet-sub kbd-only">Atajos de teclado</p>
       <p class="export-meta kbd-only">Espacio: reproducir · ← →: mover · S: dividir · Supr: borrar · Ctrl+Z/Y: deshacer</p>
       <button class="primary-btn full" data-close-sheet>Listo</button>

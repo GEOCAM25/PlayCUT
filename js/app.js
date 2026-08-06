@@ -283,6 +283,7 @@ async function handleMediaFiles(files) {
         ensurePeaks(rec.id);
       } else {
         const clip = createVideoClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height });
+        if (rec.kind === 'image') clip.imageDuration = defaultImageDur();
         project.tracks.video.push(clip); lastVideo = clip;
       }
       added++;
@@ -476,24 +477,63 @@ function bindColorCard() {
     const sw = e.target.closest('.swatch'); if (!sw) return;
     addColorCard(sw.dataset.color);
   });
+  $('#btn-add-intro').addEventListener('click', addIntro);
+  $('#btn-add-outro').addEventListener('click', addOutro);
+}
+// Genera un clip de imagen de color sólido (para tarjetas, intros y outros).
+async function makeColorClip(color, dur = 3, name = 'Color') {
+  const cv = document.createElement('canvas');
+  cv.width = project.width; cv.height = project.height;
+  const cx = cv.getContext('2d'); cx.fillStyle = color; cx.fillRect(0, 0, cv.width, cv.height);
+  const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+  const rec = await importFile(new File([blob], 'color.png', { type: 'image/png' }));
+  if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
+  mediaNames.set(rec.id, name);
+  const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
+  clip.imageDuration = dur; clip.fillMode = 'cover';
+  return clip;
 }
 async function addColorCard(color) {
   try {
-    const cv = document.createElement('canvas');
-    cv.width = project.width; cv.height = project.height;
-    const cx = cv.getContext('2d'); cx.fillStyle = color; cx.fillRect(0, 0, cv.width, cv.height);
-    const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
-    const file = new File([blob], 'color.png', { type: 'image/png' });
     pushHistory();
-    const rec = await importFile(file);
-    if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
-    mediaNames.set(rec.id, 'Color');
-    const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
-    clip.imageDuration = 3; clip.fillMode = 'cover';
+    const clip = await makeColorClip(color, 3);
     project.tracks.video.push(clip);
     refresh(); pushHistory(); closeSheets(); timeline.select(clip.id, 'video');
     haptic(12); toast('Tarjeta de color añadida');
   } catch (e) { console.error(e); toast('No se pudo añadir la tarjeta'); }
+}
+// Plantilla de intro: tarjeta al principio + título centrado; desplaza las
+// demás pistas para que todo empiece después de la intro.
+async function addIntro() {
+  try {
+    const D = 2.5;
+    pushHistory();
+    const card = await makeColorClip('#000000', D, 'Intro');
+    project.tracks.video.unshift(card);
+    for (const c of project.tracks.overlay) c.start += D;
+    for (const c of project.tracks.audio) c.start += D;
+    for (const c of project.tracks.text) { c.start += D; c.end += D; }
+    const t = createTextClip({ text: 'Tu título', start: 0, end: D });
+    t.y = 0.5; t.size = 120; t.font = 'display'; t.bg = 'none'; t.stroke = true; t.animIn = 'pop'; t.animOut = 'fade';
+    project.tracks.text.push(t);
+    refresh(); pushHistory(); closeSheets(); engine.seek(0); timeline.setPlayhead(0);
+    haptic(12); toast('Intro añadida — toca el título para editarlo');
+  } catch (e) { console.error(e); toast('No se pudo añadir la intro'); }
+}
+// Plantilla de outro: tarjeta al final + texto de cierre centrado.
+async function addOutro() {
+  try {
+    const D = 2.5;
+    pushHistory();
+    const card = await makeColorClip('#000000', D, 'Outro');
+    project.tracks.video.push(card);
+    const start = videoClipStart(project.tracks.video, project.tracks.video.length - 1);
+    const t = createTextClip({ text: '¡Gracias por ver!', start, end: start + D });
+    t.y = 0.5; t.size = 96; t.font = 'round'; t.bg = 'none'; t.stroke = true; t.animIn = 'fade'; t.animOut = 'fade';
+    project.tracks.text.push(t);
+    refresh(); pushHistory(); closeSheets();
+    haptic(12); toast('Outro añadida — toca el texto para editarlo');
+  } catch (e) { console.error(e); toast('No se pudo añadir la outro'); }
 }
 
 // Congela el fotograma actual: lo captura como imagen y lo inserta como clip fijo.
@@ -1177,10 +1217,13 @@ function bindText() {
 let exportRes = perf.suggestedExportTier(), exportFps = 30;
 
 // ---------- Ajustes / Rendimiento ----------
+function defaultImageDur() { return +(localStorage.getItem('playcut.imgDur') || 3) || 3; }
 function openSettings() {
   $('#device-info').textContent = perf.deviceSummary();
   setActive('#perf-grid', 'perf', perf.getMode());
   $$('#bg-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === project.bgColor));
+  $('#set-imgdur').value = defaultImageDur();
+  $('#out-imgdur').textContent = defaultImageDur().toFixed(1) + 's';
   openSheet('sheet-settings');
 }
 function bindSettings() {
@@ -1195,6 +1238,11 @@ function bindSettings() {
     pushHistory(); project.bgColor = s.dataset.color;
     $$('#bg-colors .swatch').forEach(x => x.classList.toggle('active', x === s));
     engine.render(engine.playhead); scheduleSave();
+  });
+  $('#set-imgdur').addEventListener('input', () => {
+    const v = +$('#set-imgdur').value;
+    localStorage.setItem('playcut.imgDur', v);
+    $('#out-imgdur').textContent = v.toFixed(1) + 's';
   });
 }
 

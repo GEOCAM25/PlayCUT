@@ -106,6 +106,8 @@
       <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
       <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="freeze"><i>🧊</i><span>Congelar</span></button>
+      <button class="tool" data-action="add-color"><i>🎨</i><span>Color</span></button>
+      <button class="tool" data-action="marker"><i>📍</i><span>Marcador</span></button>
       <button class="tool" data-action="paste" id="btn-paste" hidden><i>📥</i><span>Pegar</span></button>
     </nav>
 
@@ -514,6 +516,28 @@
       <div class="sheet-handle"></div>
       <h3>Stickers</h3>
       <div class="emoji-grid" id="emoji-grid"></div>
+      <button class="ghost-btn full" data-close-sheet>Cerrar</button>
+    </div>
+  </div>
+
+  <!-- ===================== HOJA: TARJETA DE COLOR ===================== -->
+  <div id="sheet-color" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Fondo de color</h3>
+      <p class="export-meta">Añade una tarjeta de color (para intros, títulos o separadores). Se añade al final del video.</p>
+      <div class="color-row" id="color-card-swatches">
+        <button class="swatch" style="background:#000000" data-color="#000000"></button>
+        <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+        <button class="swatch" style="background:#ff3b6b" data-color="#ff3b6b"></button>
+        <button class="swatch" style="background:#ffd23b" data-color="#ffd23b"></button>
+        <button class="swatch" style="background:#3bff9d" data-color="#3bff9d"></button>
+        <button class="swatch" style="background:#3ba8ff" data-color="#3ba8ff"></button>
+        <button class="swatch" style="background:#7c3aed" data-color="#7c3aed"></button>
+        <button class="swatch" style="background:#ff7a3b" data-color="#ff7a3b"></button>
+        <button class="swatch" style="background:#111827" data-color="#111827"></button>
+        <button class="swatch" style="background:#0e7490" data-color="#0e7490"></button>
+      </div>
       <button class="ghost-btn full" data-close-sheet>Cerrar</button>
     </div>
   </div>

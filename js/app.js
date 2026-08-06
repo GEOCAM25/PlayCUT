@@ -357,6 +357,8 @@ function bindToolbar() {
       case 'split': splitAtPlayhead(); break;
       case 'freeze': freezeFrame(); break;
       case 'paste': pasteClip(); break;
+      case 'add-color': openSheet('sheet-color'); break;
+      case 'marker': toggleMarker(); break;
     }
   });
 
@@ -456,6 +458,42 @@ function splitAtPlayhead() {
   }
   clips.splice(at.index + 1, 0, copy);
   refresh(); timeline.select(copy.id, 'video'); haptic(15); toast('Clip dividido');
+}
+
+// Marcadores: añade o quita un pin en la posición del cursor.
+function toggleMarker() {
+  if (!project.markers) project.markers = [];
+  const t = engine.playhead;
+  const i = project.markers.findIndex(m => Math.abs(m.t - t) < 0.25);
+  if (i >= 0) { project.markers.splice(i, 1); toast('Marcador quitado'); }
+  else { project.markers.push({ t }); project.markers.sort((a, b) => a.t - b.t); toast('📍 Marcador añadido'); }
+  timeline.render(); scheduleSave(); haptic(10);
+}
+
+// Tarjeta de color: genera una imagen sólida y la añade al final del video.
+function bindColorCard() {
+  $('#color-card-swatches').addEventListener('click', (e) => {
+    const sw = e.target.closest('.swatch'); if (!sw) return;
+    addColorCard(sw.dataset.color);
+  });
+}
+async function addColorCard(color) {
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = project.width; cv.height = project.height;
+    const cx = cv.getContext('2d'); cx.fillStyle = color; cx.fillRect(0, 0, cv.width, cv.height);
+    const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    const file = new File([blob], 'color.png', { type: 'image/png' });
+    pushHistory();
+    const rec = await importFile(file);
+    if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
+    mediaNames.set(rec.id, 'Color');
+    const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
+    clip.imageDuration = 3; clip.fillMode = 'cover';
+    project.tracks.video.push(clip);
+    refresh(); pushHistory(); closeSheets(); timeline.select(clip.id, 'video');
+    haptic(12); toast('Tarjeta de color añadida');
+  } catch (e) { console.error(e); toast('No se pudo añadir la tarjeta'); }
 }
 
 // Congela el fotograma actual: lo captura como imagen y lo inserta como clip fijo.
@@ -1593,7 +1631,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

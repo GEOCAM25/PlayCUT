@@ -165,6 +165,16 @@ export class Timeline {
       tick.appendChild(label);
       ruler.appendChild(tick);
     }
+    // Marcadores del proyecto (pines que se pueden tocar para saltar ahí).
+    for (const mk of (this.project.markers || [])) {
+      const pin = document.createElement('button');
+      pin.className = 'ruler-marker';
+      pin.style.left = (mk.t * this.pps) + 'px';
+      pin.textContent = '📍';
+      pin.title = 'Marcador · toca para saltar';
+      pin.addEventListener('click', (e) => { e.stopPropagation(); this.onScrub && this.onScrub(mk.t); this.setPlayhead(mk.t); });
+      ruler.appendChild(pin);
+    }
   }
 
   _hint(text) { const s = document.createElement('span'); s.className = 'track-empty-hint'; s.textContent = text; return s; }

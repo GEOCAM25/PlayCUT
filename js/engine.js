@@ -644,8 +644,9 @@ export class Engine {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     try { ctx.letterSpacing = ((tc.letterSpacing || 0) * (H / 1920)) + 'px'; } catch {}
-    const lines = String(textOverride != null ? textOverride : tc.text).split('\n');
-    const lineH = size * 1.22;
+    const raw = String(textOverride != null ? textOverride : tc.text);
+    const lines = tc.vertical ? [...raw].filter(c => c !== '\n') : raw.split('\n');
+    const lineH = size * (tc.vertical ? 1.02 : 1.22);
     let startY = -(lines.length - 1) * lineH / 2;
 
     // Fondo del texto.
@@ -737,8 +738,20 @@ export class Engine {
     return e;
   }
 
+  // Ganancia del fundido del proyecto (baja el audio al aparecer/desaparecer).
+  _projFadeGain(t) {
+    const fi = this.project.fadeIn || 0, fo = this.project.fadeOut || 0;
+    if (!fi && !fo) return 1;
+    const total = projectDuration(this.project);
+    let g = 1;
+    if (fi > 0 && t < fi) g = Math.min(g, Math.max(0, t / fi));
+    if (fo > 0 && t > total - fo) g = Math.min(g, Math.max(0, (total - t) / fo));
+    return g;
+  }
+
   syncPlayback(t) {
     const vs = videoStateAt(this.project.tracks.video, t);
+    const pf = this._projFadeGain(t);
     const activeIds = new Set();
     if (vs) { if (vs.a) activeIds.add(vs.a.id); if (vs.b) activeIds.add(vs.b.id); }
 
@@ -760,7 +773,7 @@ export class Engine {
       // Crossfade de audio durante transición.
       let g = this._vol(clip);
       if (vs && vs.b) g *= isB ? vs.p : (1 - vs.p);
-      setClipGain(clip.id, g);
+      setClipGain(clip.id, g * pf);
     };
     if (vs) { drive(vs.a, vs.localA, false); if (vs.b) drive(vs.b, vs.localB, true); }
 
@@ -774,7 +787,7 @@ export class Engine {
         const expected = clip.inPoint + (t - start);
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
         if (rec.el.paused) rec.el.play().catch(() => {});
-        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end));
+        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);
       } else if (!rec.el.paused) rec.el.pause();
     }
 
@@ -790,7 +803,7 @@ export class Engine {
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
         rec.el.playbackRate = clip.speed || 1;
         if (rec.el.paused) rec.el.play().catch(() => {});
-        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end));
+        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);
       } else if (!rec.el.paused) rec.el.pause();
     }
   }

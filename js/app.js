@@ -1180,6 +1180,7 @@ function openTextSheet(clip) {
   setActive('#text-bg', 'bg', clip.bg || 'none');
   setActive('#text-anim', 'anim', clip.animIn || 'none');
   const sh = $('#text-effects [data-toggle=shadow]'); if (sh) sh.classList.toggle('active', !!clip.shadow);
+  const vt = $('#text-effects [data-toggle=vertical]'); if (vt) vt.classList.toggle('active', !!clip.vertical);
   openSheet('sheet-text');
 }
 function bindText() {
@@ -1203,6 +1204,7 @@ function bindText() {
   if (fx) fx.addEventListener('click', (e) => {
     const b = e.target.closest('[data-toggle]'); if (!b || !textTarget) return;
     if (b.dataset.toggle === 'shadow') { textTarget.shadow = !textTarget.shadow; b.classList.toggle('active', !!textTarget.shadow); }
+    else if (b.dataset.toggle === 'vertical') { textTarget.vertical = !textTarget.vertical; b.classList.toggle('active', !!textTarget.vertical); }
     engine.render(engine.playhead); scheduleSave();
   });
   $('#text-colors').addEventListener('click', (e) => {

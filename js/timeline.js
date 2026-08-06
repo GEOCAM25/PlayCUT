@@ -180,6 +180,7 @@ export class Timeline {
     el.dataset.id = clip.id; el.dataset.track = track;
     el.style.left = (start * this.pps) + 'px';
     el.style.width = Math.max(26, duration * this.pps) + 'px';
+    if (clip.locked) { el.classList.add('locked'); const lk = document.createElement('span'); lk.className = 'clip-lock'; lk.textContent = '🔒'; el.appendChild(lk); }
     el.addEventListener('click', (e) => { e.stopPropagation(); this.select(clip.id, track); });
     return el;
   }
@@ -227,6 +228,7 @@ export class Timeline {
     const down = (e) => {
       e.preventDefault(); e.stopPropagation();
       this.select(clip.id, track);
+      if (clip.locked) return;
       startX = e.clientX; orig = { ...clip };
       try { handle.setPointerCapture && handle.setPointerCapture(e.pointerId); } catch {}
       document.addEventListener('pointermove', move);
@@ -303,6 +305,7 @@ export class Timeline {
     const down = (e) => {
       if (e.target.classList.contains('clip-handle')) return;
       if (clip.id !== this.selectedId) { this.select(clip.id, 'video'); return; }
+      if (clip.locked) return;
       startX = e.clientX; moved = false; dx = 0;
       origLeft = parseFloat(el.style.left) || 0; w = parseFloat(el.style.width) || 0;
       try { el.setPointerCapture && el.setPointerCapture(e.pointerId); } catch {}
@@ -340,6 +343,7 @@ export class Timeline {
     const down = (e) => {
       if (e.target.classList.contains('clip-handle')) return;
       if (clip.id !== this.selectedId) { this.select(clip.id, track); return; }
+      if (clip.locked) return;
       startX = e.clientX; origStart = clip.start; moved = false;
       try { el.setPointerCapture && el.setPointerCapture(e.pointerId); } catch {}
       document.addEventListener('pointermove', move);

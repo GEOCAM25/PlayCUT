@@ -13,7 +13,11 @@ export const RATIOS = {
   '16:9': [1920, 1080],
   '4:5':  [1080, 1350],
   '3:4':  [1080, 1440],
+  '2:3':  [1080, 1620],
+  '3:2':  [1620, 1080],
+  '5:4':  [1350, 1080],
   '21:9': [1920, 823],
+  '9:21': [823, 1920],
 };
 
 export function createProject(name = 'Proyecto sin título') {
@@ -142,6 +146,7 @@ export function normalizeProject(p) {
   if (!p.bgColor) p.bgColor = '#000000';
   p.tracks = p.tracks || { video: [], overlay: [], audio: [], text: [] };
   if (!p.tracks.overlay) p.tracks.overlay = [];
+  for (const t of ['video', 'overlay', 'audio', 'text']) for (const c of (p.tracks[t] || [])) c.locked = c.locked ?? false;
   for (const c of p.tracks.video) {
     c.muted = c.muted ?? false;
     c.speed = c.speed || 1;

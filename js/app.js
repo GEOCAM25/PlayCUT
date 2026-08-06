@@ -388,6 +388,7 @@ function bindToolbar() {
       case 'clip-split': splitAtPlayhead(); break;
       case 'clip-duplicate': duplicateClip(sel); break;
       case 'clip-copy': copyClip(sel); break;
+      case 'clip-lock': toggleLock(sel); break;
       case 'clip-left': moveClip(sel, -1); break;
       case 'clip-right': moveClip(sel, 1); break;
       case 'clip-delete': deleteClip(sel); break;
@@ -516,6 +517,14 @@ function deleteClip(sel) {
   timeline.clearSelection(); onClipSelected(null); refresh(); haptic(25); toast('Clip borrado');
 }
 
+// ---------- Bloquear / desbloquear clip ----------
+function toggleLock(sel) {
+  pushHistory();
+  sel.clip.locked = !sel.clip.locked;
+  refresh(); timeline.select(sel.clip.id, sel.track);
+  haptic(12); toast(sel.clip.locked ? '🔒 Clip bloqueado' : '🔓 Clip desbloqueado');
+}
+
 // ---------- Copiar / pegar clip ----------
 let clipboard = null; // { track, clip }
 function copyClip(sel) {
@@ -551,7 +560,11 @@ function onClipSelected(clip) {
   const has = !!clip;
   els.toolbarMain.hidden = has;
   els.clipTools.hidden = !has;
-  if (has) haptic(8);
+  if (has) {
+    const lockBtn = $('#clip-tools [data-action="clip-lock"]');
+    if (lockBtn) { lockBtn.querySelector('i').textContent = clip.locked ? '🔓' : '🔒'; lockBtn.querySelector('span').textContent = clip.locked ? 'Desbloq.' : 'Bloquear'; }
+    haptic(8);
+  }
 }
 
 // ==================================================================
@@ -790,6 +803,17 @@ function bindAdjust() {
     if (b.dataset.flip === 'h') c.flipH = !c.flipH; else c.flipV = !c.flipV;
     b.classList.toggle('active', b.dataset.flip === 'h' ? !!c.flipH : !!c.flipV);
     engine.render(engine.playhead); scheduleSave();
+  });
+  $('#btn-apply-all-visual').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    pushHistory();
+    const s = adjustTarget.clip;
+    const keys = ['filter', 'brightness', 'contrast', 'saturation', 'temp', 'hue', 'vignette', 'grain'];
+    const targets = project.tracks[adjustTarget.track] || [];
+    let n = 0;
+    for (const c of targets) { if (c === s) continue; for (const k of keys) c[k] = s[k]; n++; }
+    engine.render(engine.playhead); timeline.render(); scheduleSave();
+    toast(n ? `Aplicado a ${n} clip${n > 1 ? 's' : ''} más` : 'No hay otros clips en la pista');
   });
   $('#btn-reset-transform').addEventListener('click', () => {
     if (!adjustTarget) return;
@@ -1377,14 +1401,15 @@ function bindPreviewGestures() {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (chromaPickMode) return;
     if (pointers.size === 1) {
-      const t = gestureTarget();
+      let t = gestureTarget();
+      if (t && t.clip.locked) t = null; // clip bloqueado: no se transforma
       g = { mode: 'maybe', t, sx: e.clientX, sy: e.clientY, moved: false,
         oScale: t ? (t.clip.scale ?? 1) : 1, oSize: t ? (t.clip.size ?? 64) : 64,
         oX: t ? (t.track === 'text' ? (t.clip.x ?? 0.5) : (t.clip.offsetX ?? 0)) : 0,
         oY: t ? (t.track === 'text' ? (t.clip.y ?? 0.8) : (t.clip.offsetY ?? 0)) : 0 };
     } else if (pointers.size === 2) {
       const t = gestureTarget();
-      if (t) {
+      if (t && !t.clip.locked) {
         const p = [...pointers.values()];
         g = { mode: 'pinch', t, startDist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), oScale: t.clip.scale ?? 1, oSize: t.clip.size ?? 64 };
         pushHistory();

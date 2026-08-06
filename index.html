@@ -119,6 +119,7 @@
       <button class="tool" data-action="clip-split"><i>✂️</i><span>Dividir</span></button>
       <button class="tool" data-action="clip-duplicate"><i>⧉</i><span>Duplicar</span></button>
       <button class="tool" data-action="clip-copy"><i>📋</i><span>Copiar</span></button>
+      <button class="tool" data-action="clip-lock"><i>🔒</i><span>Bloquear</span></button>
       <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
       <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
       <button class="tool danger" data-action="clip-delete"><i>🗑️</i><span>Borrar</span></button>
@@ -312,6 +313,7 @@
         <label class="only-visual">Opacidad <output id="out-opacity">100%</output>
           <input id="adj-opacity" type="range" min="0" max="100" value="100" /></label>
       </div>
+      <button class="opt full only-visual" id="btn-apply-all-visual"><span class="opt-ico">🎨</span>Aplicar filtro y ajustes a todos</button>
       <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>
   </div>
@@ -406,7 +408,11 @@
         <button class="opt" data-ratio="16:9"><span class="opt-ico">▭</span>16:9</button>
         <button class="opt" data-ratio="4:5"><span class="opt-ico">▯</span>4:5</button>
         <button class="opt" data-ratio="3:4"><span class="opt-ico">▯</span>3:4</button>
+        <button class="opt" data-ratio="2:3"><span class="opt-ico">▯</span>2:3</button>
+        <button class="opt" data-ratio="3:2"><span class="opt-ico">▭</span>3:2</button>
+        <button class="opt" data-ratio="5:4"><span class="opt-ico">▭</span>5:4</button>
         <button class="opt" data-ratio="21:9"><span class="opt-ico">▭</span>21:9</button>
+        <button class="opt" data-ratio="9:21"><span class="opt-ico">▯</span>9:21</button>
       </div>
       <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>

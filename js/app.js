@@ -11,6 +11,7 @@ import { Engine } from './engine.js';
 import { Timeline } from './timeline.js';
 import { exportProject, computeExportSize } from './exporter.js';
 import { mediaToMp3 } from './audioextract.js';
+import { encodeGif } from './gifencoder.js';
 import * as perf from './perf.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -1210,6 +1211,7 @@ function bindExport() {
         onProgress: (p) => { $('#export-percent').textContent = p + '%'; $('#export-bar').style.width = p + '%'; },
       });
       const url = URL.createObjectURL(blob);
+      $('#export-preview').hidden = false; $('#export-gif-preview').hidden = true;
       $('#export-preview').src = url;
       const link = $('#export-download');
       link.href = url; link.download = `${sanitize(project.name)}_${h}p.${ext}`;
@@ -1242,8 +1244,63 @@ function bindExport() {
       } catch (e) { if (e && e.name !== 'AbortError') toast('No se pudo compartir'); }
     });
   }
+
+  const gifBtn = $('#btn-export-gif');
+  if (gifBtn) gifBtn.addEventListener('click', exportGif);
 }
 let lastExportBlob = null, lastExportName = '';
+
+// Exporta el proyecto como GIF animado capturando fotogramas en reproducción.
+async function exportGif() {
+  if (projectDuration(project) <= 0) { toast('El proyecto está vacío'); return; }
+  const total = Math.min(projectDuration(project), 12); // límite práctico para GIF
+  const long = Math.max(project.width, project.height);
+  const scale = Math.min(1, 320 / long);
+  const gw = Math.max(2, Math.round(project.width * scale / 2) * 2);
+  const gh = Math.max(2, Math.round(project.height * scale / 2) * 2);
+  const gifFps = 10;
+  const off = document.createElement('canvas'); off.width = gw; off.height = gh;
+  const octx = off.getContext('2d', { willReadFrequently: true });
+  const frames = [];
+  let lastCap = -1;
+
+  $('#export-config').hidden = true; $('#export-progress').hidden = false; $('#export-done').hidden = true;
+  $('#export-percent').textContent = '0%'; $('#export-bar').style.width = '0%';
+  setPlayIcon(false);
+
+  const prevTick = engine.onTick;
+  engine._exporting = true;
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; engine._exporting = false; engine.onTick = prevTick; engine.pause(); resolve(); };
+    engine.onTick = (t, ended) => {
+      if (lastCap < 0 || t - lastCap >= (1 / gifFps) - 1e-3) {
+        lastCap = t;
+        octx.drawImage(els.canvas, 0, 0, gw, gh);
+        frames.push(octx.getImageData(0, 0, gw, gh).data.slice(0));
+        const p = Math.min(99, Math.round(t / total * 100));
+        $('#export-percent').textContent = p + '%'; $('#export-bar').style.width = p + '%';
+      }
+      if (ended || t >= total - 1e-2 || frames.length >= 130) finish();
+    };
+    engine.seek(0);
+    engine.play();
+    setTimeout(finish, total * 1000 + 5000); // seguridad
+  });
+
+  if (!frames.length) { toast('No se pudo capturar el GIF'); closeSheets(); return; }
+  try {
+    const blob = encodeGif(frames, gw, gh, Math.round(100 / gifFps));
+    const url = URL.createObjectURL(blob);
+    lastExportBlob = blob; lastExportName = `${sanitize(project.name)}.gif`;
+    $('#export-preview').hidden = true;
+    const gp = $('#export-gif-preview'); gp.hidden = false; gp.src = url;
+    const link = $('#export-download'); link.href = url; link.download = lastExportName;
+    const shareBtn = $('#export-share'); if (shareBtn) shareBtn.hidden = !(navigator.canShare && navigator.share);
+    $('#export-progress').hidden = true; $('#export-done').hidden = false;
+    toast(`GIF ${gw}×${gh} · ${frames.length} fotogramas`);
+  } catch (e) { console.error(e); toast('No se pudo crear el GIF: ' + (e.message || '')); closeSheets(); }
+}
 function sanitize(name) { return String(name).replace(/[^\w\-]+/g, '_').slice(0, 40) || 'playcut'; }
 
 // ==================================================================

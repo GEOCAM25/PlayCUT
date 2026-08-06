@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..');
 const R = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 // Orden de dependencias.
-const order = ['js/state.js', 'js/db.js', 'js/media.js', 'js/perf.js', 'js/audioextract.js', 'js/engine.js', 'js/exporter.js', 'js/timeline.js', 'js/app.js'];
+const order = ['js/state.js', 'js/db.js', 'js/media.js', 'js/perf.js', 'js/audioextract.js', 'js/gifencoder.js', 'js/engine.js', 'js/exporter.js', 'js/timeline.js', 'js/app.js'];
 
 function strip(src) {
   // Quita imports (incluye multilínea).

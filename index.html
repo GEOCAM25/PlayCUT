@@ -599,6 +599,7 @@
         <p class="export-meta" id="export-meta">1080 × 1920 · 30 fps</p>
         <p class="export-note">El video se genera en tu teléfono en tiempo real. Mantén la pantalla encendida.</p>
         <button class="primary-btn full" id="btn-start-export">Empezar exportación</button>
+        <button class="ghost-btn full" id="btn-export-gif">🎞️ Exportar como GIF (para chats)</button>
       </div>
       <div id="export-progress" hidden>
         <div class="progress-ring-text"><span id="export-percent">0%</span></div>
@@ -608,6 +609,7 @@
       <div id="export-done" hidden>
         <p class="done-msg">✅ ¡Listo!</p>
         <video id="export-preview" controls playsinline class="export-video"></video>
+        <img id="export-gif-preview" class="export-video" hidden alt="GIF" />
         <button id="export-share" class="primary-btn full" hidden>📤 Compartir a otras apps</button>
         <a id="export-download" class="primary-btn full" download>⬇️ Descargar / Guardar</a>
         <button class="ghost-btn full" data-close-sheet>Cerrar</button>

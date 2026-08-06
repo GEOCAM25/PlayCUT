@@ -791,6 +791,20 @@ function bindAdjust() {
     b.classList.toggle('active', b.dataset.flip === 'h' ? !!c.flipH : !!c.flipV);
     engine.render(engine.playhead); scheduleSave();
   });
+  $('#btn-reset-transform').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    pushHistory();
+    const c = adjustTarget.clip;
+    c.scale = 1; c.offsetX = 0; c.offsetY = 0; c.rotate = 0; c.flipH = false; c.flipV = false;
+    if (c.keyframes) c.keyframes = [];
+    $('#adj-scale').value = 100; $('#out-scale').textContent = '100%';
+    $('#adj-rotate').value = 0; $('#out-rotate').textContent = '0°';
+    $('#flip-row [data-flip=h]').classList.remove('active');
+    $('#flip-row [data-flip=v]').classList.remove('active');
+    updateKfUI(c);
+    engine.render(engine.playhead); timeline.render(); scheduleSave();
+    toast('Encuadre restablecido');
+  });
   $('#blend-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-blend]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.blend = b.dataset.blend; setActive('#blend-row', 'blend', b.dataset.blend);
@@ -1343,6 +1357,17 @@ function gestureTarget() {
   const at = videoClipAt(project.tracks.video, engine.playhead);
   return at ? { clip: at.clip, track: 'video' } : null;
 }
+// Dibuja las guías de alineación (centro) sobre el lienzo mientras se arrastra.
+function drawGuides(v, h) {
+  const cv = els.canvas, ctx = cv.getContext('2d');
+  ctx.save();
+  ctx.strokeStyle = 'rgba(124,58,237,.95)';
+  ctx.lineWidth = Math.max(1.5, cv.width * 0.004);
+  ctx.setLineDash([cv.width * 0.02, cv.width * 0.02]);
+  if (v) { ctx.beginPath(); ctx.moveTo(cv.width / 2, 0); ctx.lineTo(cv.width / 2, cv.height); ctx.stroke(); }
+  if (h) { ctx.beginPath(); ctx.moveTo(0, cv.height / 2); ctx.lineTo(cv.width, cv.height / 2); ctx.stroke(); }
+  ctx.restore();
+}
 function bindPreviewGestures() {
   const wrap = $('.preview-wrap');
   const canvas = els.canvas;
@@ -1381,9 +1406,22 @@ function bindPreviewGestures() {
       if (!g.moved && Math.hypot(dx, dy) > 6) { g.moved = true; g.mode = 'drag'; if (g.t) pushHistory(); }
       if (g.mode === 'drag' && g.t) {
         const fx = dx / rect.width, fy = dy / rect.height;
-        if (g.t.track === 'text') { g.t.clip.x = Math.max(0, Math.min(1, g.oX + fx)); g.t.clip.y = Math.max(0, Math.min(1, g.oY + fy)); }
-        else { g.t.clip.offsetX = g.oX + fx; g.t.clip.offsetY = g.oY + fy; }
+        const SNAP = 0.02; // imán al centro (2% del lado)
+        let snapV = false, snapH = false;
+        if (g.t.track === 'text') {
+          let nx = g.oX + fx, ny = g.oY + fy;
+          if (Math.abs(nx - 0.5) < SNAP) { nx = 0.5; snapV = true; }
+          if (Math.abs(ny - 0.5) < SNAP) { ny = 0.5; snapH = true; }
+          g.t.clip.x = Math.max(0, Math.min(1, nx)); g.t.clip.y = Math.max(0, Math.min(1, ny));
+        } else {
+          let nx = g.oX + fx, ny = g.oY + fy;
+          if (Math.abs(nx) < SNAP) { nx = 0; snapV = true; }
+          if (Math.abs(ny) < SNAP) { ny = 0; snapH = true; }
+          g.t.clip.offsetX = nx; g.t.clip.offsetY = ny;
+        }
         engine.render(engine.playhead);
+        if (snapV || snapH) { drawGuides(snapV, snapH); if (!g.snapped) { haptic(8); g.snapped = true; } }
+        else g.snapped = false;
       }
     }
   });
@@ -1394,8 +1432,9 @@ function bindPreviewGestures() {
     if ((g.mode === 'pinch' || g.mode === 'drag')) {
       // Si el clip tiene keyframes, la nueva transformación crea/actualiza uno.
       if (g.t && (g.t.track === 'video' || g.t.track === 'overlay') && g.t.clip.keyframes && g.t.clip.keyframes.length) {
-        upsertKeyframe(g.t.clip, g.t.track); engine.render(engine.playhead);
+        upsertKeyframe(g.t.clip, g.t.track);
       }
+      engine.render(engine.playhead); // redibuja sin las guías
       scheduleSave(); timeline.render(); pushHistory();
       if (pointers.size === 0) g = null;
     } else if (g.mode === 'maybe' && !g.moved && pointers.size === 0) {

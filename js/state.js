@@ -33,6 +33,7 @@ export function createProject(name = 'Proyecto sin título') {
     fps: 30,
     thumb: null,
     bgColor: '#000000',
+    fadeIn: 0, fadeOut: 0,
     markers: [],
     tracks: { video: [], overlay: [], audio: [], text: [] },
   };
@@ -145,6 +146,7 @@ export function normalizeProject(p) {
   if (!p.width || !p.height) { const [w, h] = RATIOS[p.ratio] || RATIOS['9:16']; p.width = w; p.height = h; }
   if (!p.fps) p.fps = 30;
   if (!p.bgColor) p.bgColor = '#000000';
+  p.fadeIn = p.fadeIn ?? 0; p.fadeOut = p.fadeOut ?? 0;
   if (!Array.isArray(p.markers)) p.markers = [];
   p.tracks = p.tracks || { video: [], overlay: [], audio: [], text: [] };
   if (!p.tracks.overlay) p.tracks.overlay = [];

@@ -407,10 +407,34 @@ function getSelectedClip() {
   return clip ? { clip, track } : null;
 }
 
-const EMOJIS = ['😀', '😂', '🥰', '😎', '😭', '😱', '🤔', '😴', '🤩', '🥳', '😍', '🤣', '😤', '🙄', '😇', '🤗', '🥺', '😏', '🔥', '✨', '⭐', '🌟', '💫', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '💯', '👍', '👎', '👏', '🙌', '🙏', '🤙', '👀', '💪', '🎉', '🎊', '🎈', '🎁', '👑', '💎', '💰', '⚡', '💥', '💦', '🌈', '☀️', '🌙', '⚽', '🏆', '🎵', '🎮', '📌', '✅', '❌', '❓', '❗', '💤', '🍕', '🍔', '🌮', '🍟', '🐶', '🐱', '🦄'];
+const EMOJI_CATS = {
+  '😀': ['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '🤪', '😎', '🤩', '🥳', '😏', '😒', '😔', '😪', '😴', '😌', '😜', '🤔', '🤨', '😐', '😑', '🙄', '😬', '😲', '😳', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '😱', '😨', '😰', '😥', '🤗', '🤭', '🤫', '🤥', '😷', '🤒', '🤕', '🤢', '🤮', '🥵', '🥶', '😵', '🤯', '🤠', '🥸', '😈', '👿', '💀', '👻', '👽', '🤖'],
+  '👍': ['👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋', '🤝', '👏', '🙌', '👐', '🙏', '✍️', '💪', '🦾', '👀', '👁️', '👂', '👃', '🧠', '🦷', '👅', '👄', '💋'],
+  '❤️': ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '♥️', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💬', '💭', '🔥', '✨', '⭐', '🌟'],
+  '🎉': ['🎉', '🎊', '🎈', '🎁', '🎂', '🍰', '🎄', '🎃', '🎆', '🎇', '🧨', '✨', '🎀', '🎗️', '🏆', '🥇', '🥈', '🥉', '🏅', '👑', '💎', '💍', '💰', '💵', '🎯', '🎮', '🕹️', '🎲', '🎸', '🎹', '🎤', '🎧', '🎬', '📷', '📸', '📱'],
+  '🐶': ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦄', '🐝', '🦋', '🐢', '🐙', '🦈', '🐬', '🐳', '🌵', '🌴', '🌲', '🌸', '🌼', '🌻', '🌈', '☀️', '🌙', '⭐', '⚡', '❄️', '🔥', '💧', '🌊'],
+  '🍕': ['🍕', '🍔', '🌭', '🌮', '🌯', '🍟', '🍿', '🥪', '🥗', '🍣', '🍜', '🍝', '🍩', '🍪', '🍫', '🍬', '🍭', '🍦', '🍨', '🎂', '🍎', '🍌', '🍓', '🍒', '🍑', '🍍', '🥑', '☕', '🍵', '🧋', '🥤', '🍺', '🍻', '🍷', '🥂', '⚽', '🏀', '🏈', '⚾', '🎾', '🚗', '✈️'],
+  '💬': ['✅', '❌', '❓', '❗', '⁉️', '💤', '🔔', '📌', '📍', '🚩', '🏁', '⚠️', '🚫', '💯', '🆗', '🆒', '🔝', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '🔗', '➕', '➖', '✖️', '➗', '💲', '©️', '®️', '™️', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪'],
+};
+const EMOJI_CAT_NAMES = { '😀': 'Caras', '👍': 'Gestos', '❤️': 'Amor', '🎉': 'Fiesta', '🐶': 'Animales', '🍕': 'Comida', '💬': 'Símbolos' };
+let emojiCat = '😀';
 function buildEmojiGrid() {
-  const grid = $('#emoji-grid'); if (!grid || grid.childElementCount) return;
-  for (const e of EMOJIS) {
+  const tabs = $('#emoji-tabs');
+  if (tabs && !tabs.childElementCount) {
+    for (const key of Object.keys(EMOJI_CATS)) {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button'; b.textContent = key; b.title = EMOJI_CAT_NAMES[key] || '';
+      b.addEventListener('click', () => { emojiCat = key; renderEmojiGrid(); });
+      tabs.appendChild(b);
+    }
+  }
+  renderEmojiGrid();
+}
+function renderEmojiGrid() {
+  const grid = $('#emoji-grid'); if (!grid) return;
+  grid.innerHTML = '';
+  $$('#emoji-tabs .chip').forEach(c => c.classList.toggle('active', c.textContent === emojiCat));
+  for (const e of (EMOJI_CATS[emojiCat] || [])) {
     const b = document.createElement('button');
     b.className = 'emoji-item'; b.textContent = e; b.type = 'button';
     b.addEventListener('click', () => addSticker(e));
@@ -1224,6 +1248,10 @@ function openSettings() {
   $$('#bg-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === project.bgColor));
   $('#set-imgdur').value = defaultImageDur();
   $('#out-imgdur').textContent = defaultImageDur().toFixed(1) + 's';
+  $('#set-projfadein').value = project.fadeIn || 0;
+  $('#out-projfadein').textContent = (project.fadeIn || 0).toFixed(1) + 's';
+  $('#set-projfadeout').value = project.fadeOut || 0;
+  $('#out-projfadeout').textContent = (project.fadeOut || 0).toFixed(1) + 's';
   openSheet('sheet-settings');
 }
 function bindSettings() {
@@ -1243,6 +1271,16 @@ function bindSettings() {
     const v = +$('#set-imgdur').value;
     localStorage.setItem('playcut.imgDur', v);
     $('#out-imgdur').textContent = v.toFixed(1) + 's';
+  });
+  $('#set-projfadein').addEventListener('input', () => {
+    project.fadeIn = +$('#set-projfadein').value;
+    $('#out-projfadein').textContent = project.fadeIn.toFixed(1) + 's';
+    engine.render(engine.playhead); scheduleSave();
+  });
+  $('#set-projfadeout').addEventListener('input', () => {
+    project.fadeOut = +$('#set-projfadeout').value;
+    $('#out-projfadeout').textContent = project.fadeOut.toFixed(1) + 's';
+    engine.render(engine.playhead); scheduleSave();
   });
 }
 

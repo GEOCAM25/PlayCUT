@@ -189,6 +189,22 @@ export class Engine {
       if (t >= tc.start && t < tc.end) this.drawText(tc, t);
     }
 
+    // Fundido de entrada/salida del proyecto (a negro), sobre todo lo demás.
+    const fi = this.project.fadeIn || 0, fo = this.project.fadeOut || 0;
+    if (fi || fo) {
+      const total = projectDuration(this.project);
+      let a = 0;
+      if (fi > 0 && t < fi) a = Math.max(a, 1 - t / fi);
+      if (fo > 0 && t > total - fo) a = Math.max(a, 1 - (total - t) / fo);
+      if (a > 0.001) {
+        ctx.save();
+        ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = Math.min(1, a); ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
     // Durante la exportación, fuerza la captura de este fotograma.
     if (this._captureTrack && this._captureTrack.requestFrame) {
       try { this._captureTrack.requestFrame(); } catch {}

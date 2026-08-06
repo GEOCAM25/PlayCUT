@@ -105,6 +105,7 @@
       <button class="tool" data-action="voice"><i>🎙️</i><span>Voz</span></button>
       <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
       <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
+      <button class="tool" data-action="freeze"><i>🧊</i><span>Congelar</span></button>
     </nav>
 
     <!-- Panel contextual de clip seleccionado -->
@@ -150,6 +151,12 @@
           <button class="chip" data-filter="sharp">Nítido</button>
           <button class="chip" data-filter="noir">Noir</button>
           <button class="chip" data-filter="neon">Neón</button>
+          <button class="chip" data-filter="lomo">Lomo</button>
+          <button class="chip" data-filter="candy">Candy</button>
+          <button class="chip" data-filter="moody">Moody</button>
+          <button class="chip" data-filter="frost">Frío hielo</button>
+          <button class="chip" data-filter="sepia">Sepia</button>
+          <button class="chip" data-filter="invert">Negativo</button>
           <button class="chip" data-filter="bw">B/N</button>
         </div>
 
@@ -160,6 +167,11 @@
           <button class="chip" data-blend="add">Luz (add)</button>
           <button class="chip" data-blend="multiply">Oscurecer</button>
           <button class="chip" data-blend="overlay">Overlay</button>
+          <button class="chip" data-blend="hardlight">Luz fuerte</button>
+          <button class="chip" data-blend="softlight">Luz suave</button>
+          <button class="chip" data-blend="lighten">Aclarar máx</button>
+          <button class="chip" data-blend="darken">Oscurecer máx</button>
+          <button class="chip" data-blend="colordodge">Sobreexp.</button>
           <button class="chip" data-blend="difference">Invertir</button>
         </div>
 
@@ -172,6 +184,16 @@
           <button class="chip" data-motion="panR">Pan →</button>
           <button class="chip" data-motion="panU">Pan ↑</button>
           <button class="chip" data-motion="panD">Pan ↓</button>
+          <button class="chip" data-motion="panUL">Pan ↖</button>
+          <button class="chip" data-motion="panDR">Pan ↘</button>
+          <button class="chip" data-motion="zoomInFast">Zoom rápido</button>
+          <button class="chip" data-motion="zoomPanR">Zoom + pan</button>
+        </div>
+
+        <p class="sheet-sub">Espejo</p>
+        <div class="opt-chips" id="flip-row">
+          <button class="chip" data-flip="h">Voltear ↔</button>
+          <button class="chip" data-flip="v">Voltear ↕</button>
         </div>
 
         <p class="sheet-sub">Animación de entrada <span class="badge-pro">PRO</span></p>

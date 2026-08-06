@@ -354,6 +354,7 @@ function bindToolbar() {
       case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
       case 'split': splitAtPlayhead(); break;
+      case 'freeze': freezeFrame(); break;
     }
   });
 
@@ -451,6 +452,28 @@ function splitAtPlayhead() {
   }
   clips.splice(at.index + 1, 0, copy);
   refresh(); timeline.select(copy.id, 'video'); haptic(15); toast('Clip dividido');
+}
+
+// Congela el fotograma actual: lo captura como imagen y lo inserta como clip fijo.
+async function freezeFrame() {
+  const clips = project.tracks.video;
+  const at = videoClipAt(clips, engine.playhead);
+  if (!at) { toast('Coloca el cursor sobre un video o foto para congelar'); return; }
+  try {
+    toast('Congelando fotograma…');
+    const blob = await engine.captureBaseFrame();
+    if (!blob) { toast('No se pudo capturar el fotograma'); return; }
+    const file = new File([blob], 'congelado.png', { type: 'image/png' });
+    pushHistory();
+    const rec = await importFile(file);
+    if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
+    mediaNames.set(rec.id, 'Congelado');
+    const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
+    clip.imageDuration = 2;
+    clips.splice(at.index + 1, 0, clip);
+    refresh(); pushHistory(); timeline.select(clip.id, 'video');
+    haptic(15); toast('🧊 Fotograma congelado (2s) añadido');
+  } catch (e) { console.error(e); toast('No se pudo congelar: ' + (e.message || '')); }
 }
 
 function moveClip(sel, dir) {
@@ -602,6 +625,8 @@ function openAdjustSheet(clip, track) {
   setActive('#motion-row', 'motion', clip.motion || 'none');
   setActive('#anim-in-row', 'animin', clip.animIn || 'none');
   setActive('#anim-out-row', 'animout', clip.animOut || 'none');
+  $('#flip-row [data-flip=h]').classList.toggle('active', !!clip.flipH);
+  $('#flip-row [data-flip=v]').classList.toggle('active', !!clip.flipV);
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
   updateFillUI(clip);
   // Mezcla: solo para superposiciones.
@@ -720,6 +745,13 @@ function bindAdjust() {
   $('#motion-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-motion]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.motion = b.dataset.motion; setActive('#motion-row', 'motion', b.dataset.motion);
+    engine.render(engine.playhead); scheduleSave();
+  });
+  $('#flip-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-flip]'); if (!b || !adjustTarget) return;
+    const c = adjustTarget.clip;
+    if (b.dataset.flip === 'h') c.flipH = !c.flipH; else c.flipV = !c.flipV;
+    b.classList.toggle('active', b.dataset.flip === 'h' ? !!c.flipH : !!c.flipV);
     engine.render(engine.playhead); scheduleSave();
   });
   $('#blend-row').addEventListener('click', (e) => {

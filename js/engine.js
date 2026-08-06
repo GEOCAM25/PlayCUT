@@ -172,7 +172,7 @@ export class Engine {
     }
 
     // Capa superpuesta (PiP), encima del video principal, con modo de mezcla.
-    const BLEND = { normal: 'source-over', screen: 'screen', multiply: 'multiply', add: 'lighter', overlay: 'overlay', difference: 'difference' };
+    const BLEND = { normal: 'source-over', screen: 'screen', multiply: 'multiply', add: 'lighter', overlay: 'overlay', difference: 'difference', hardlight: 'hard-light', softlight: 'soft-light', lighten: 'lighten', darken: 'darken', colordodge: 'color-dodge', exclusion: 'exclusion' };
     for (const ov of (this.project.tracks.overlay || [])) {
       const d = overlayDuration(ov);
       if (t >= ov.start && t < ov.start + d) {
@@ -206,6 +206,24 @@ export class Engine {
     ctx.restore();
   }
 
+  // Captura el fotograma actual del clip base a máxima resolución del proyecto
+  // (para «congelar»). Devuelve un Blob PNG, o null si no hay clip bajo el cursor.
+  async captureBaseFrame() {
+    const vs = videoStateAt(this.project.tracks.video, this.playhead);
+    if (!vs) return null;
+    const off = document.createElement('canvas');
+    off.width = this.project.width; off.height = this.project.height;
+    const offctx = off.getContext('2d');
+    const savedCanvas = this.canvas, savedCtx = this.ctx;
+    this.canvas = off; this.ctx = offctx;
+    try {
+      offctx.fillStyle = this.project.bgColor || '#000';
+      offctx.fillRect(0, 0, off.width, off.height);
+      if (vs.b) this.drawTransition(vs); else this.drawClip(vs.a, vs.localA, {});
+    } finally { this.canvas = savedCanvas; this.ctx = savedCtx; }
+    return await new Promise((res) => off.toBlob(res, 'image/png'));
+  }
+
   // Progreso 0..1 dentro del propio clip (para movimiento).
   _clipProgress(clip, local) {
     const d = clipDuration(clip);
@@ -222,6 +240,10 @@ export class Engine {
       case 'panR': scale = 1.12; dx = (q - 0.5) * 0.12; cover = true; break;
       case 'panU': scale = 1.12; dy = (0.5 - q) * 0.12; cover = true; break;
       case 'panD': scale = 1.12; dy = (q - 0.5) * 0.12; cover = true; break;
+      case 'panUL': scale = 1.16; dx = (0.5 - q) * 0.1; dy = (0.5 - q) * 0.1; cover = true; break;
+      case 'panDR': scale = 1.16; dx = (q - 0.5) * 0.1; dy = (q - 0.5) * 0.1; cover = true; break;
+      case 'zoomInFast': scale = 1 + 0.3 * q; cover = true; break;
+      case 'zoomPanR': scale = 1.18 - 0.06 * q; dx = (q - 0.5) * 0.14; cover = true; break;
     }
     return { scale, dx, dy, cover };
   }
@@ -294,7 +316,7 @@ export class Engine {
     const chromaOn = !!(clip.chroma && clip.chroma.on);
     const blended = extra.isOverlay && clip.blend && clip.blend !== 'normal';
     const masked = clip.mask && clip.mask !== 'none';
-    const fitOpts = { mask: masked ? clip.mask : null };
+    const fitOpts = { mask: masked ? clip.mask : null, flipH: !!clip.flipH, flipV: !!clip.flipV };
     if (extra.isOverlay) {
       fitOpts.radius = (chromaOn || masked) ? 0 : clip.radius;
       fitOpts.shadow = clip.shadow && !chromaOn && !blended && !masked;
@@ -396,6 +418,7 @@ export class Engine {
     ctx.save();
     ctx.translate(W / 2 + tx, H / 2 + ty);
     if (rot) ctx.rotate(rot);
+    if (opts && (opts.flipH || opts.flipV)) ctx.scale(opts.flipH ? -1 : 1, opts.flipV ? -1 : 1);
     const r = opts && opts.radius ? opts.radius * Math.min(w, h) : 0;
     if (opts && opts.shadow) {
       ctx.save();

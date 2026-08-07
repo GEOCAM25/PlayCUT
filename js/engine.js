@@ -732,6 +732,13 @@ export class Engine {
     if (!this.playing) return;
     const now = performance.now();
     let t = this.startPlayhead + (now - this.startPerf) / 1000;
+    // Reloj guiado por el vídeo: si la decodificación se atrasa, no dejamos que
+    // el reloj adelante al fotograma real (evita el «tirón» al resincronizar).
+    const lead = this._videoLeadTime();
+    if (lead != null && t > lead + 0.05) {
+      t = Math.max(this.playhead, lead + 0.05); // monótono: nunca retrocede
+      this.startPerf = now; this.startPlayhead = t; // reancla el reloj de pared
+    }
     if (t >= this.duration) {
       this.playhead = this.duration;
       this.render(this.duration);
@@ -750,6 +757,18 @@ export class Engine {
     }
     this.onTick && this.onTick(t, false);
     this._raf = requestAnimationFrame(() => this.tick());
+  }
+
+  // Tiempo de línea que corresponde al fotograma actual del vídeo base activo,
+  // o null si no aplica (imagen/texto, transición, vídeo no listo o pausado).
+  _videoLeadTime() {
+    const vs = videoStateAt(this.project.tracks.video, this.playhead);
+    if (!vs || vs.b || !vs.a || vs.a.type !== 'video') return null;
+    const clip = vs.a;
+    const rec = this.elements.get(clip.id);
+    if (!rec || !rec.el || !rec.ready || rec.el.paused || rec.el.seeking || rec.el.readyState < 2) return null;
+    const start = this.playhead - vs.localA; // inicio del clip en la línea
+    return start + (rec.el.currentTime - clip.inPoint) / (clip.speed || 1);
   }
 
   _audioEnv(clip, t, start, end) {
@@ -788,7 +807,11 @@ export class Engine {
       const rec = this.elements.get(clip.id);
       if (!rec || !rec.ready) return;
       const expected = clip.inPoint + local * (clip.speed || 1);
-      if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
+      const drift = rec.el.currentTime - expected;
+      // Solo resincroniza si el vídeo va ADELANTADO o muy desfasado (corte,
+      // scrubbing). Si solo va un poco atrasado (decodificación), NO saltamos:
+      // el reloj guiado por vídeo ya espera al fotograma real.
+      if (drift > 0.34 || drift < -0.7) { try { rec.el.currentTime = expected; } catch {} }
       rec.el.playbackRate = clip.speed || 1;
       if (rec.el.paused) rec.el.play().catch(() => {});
       // Crossfade de audio durante transición.
@@ -821,7 +844,8 @@ export class Engine {
       const start = clip.start, end = clip.start + dur;
       if (t >= start && t < end) {
         const expected = clip.inPoint + (t - start) * (clip.speed || 1);
-        if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
+        const odrift = rec.el.currentTime - expected;
+        if (odrift > 0.34 || odrift < -0.7) { try { rec.el.currentTime = expected; } catch {} }
         rec.el.playbackRate = clip.speed || 1;
         if (rec.el.paused) rec.el.play().catch(() => {});
         setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);

@@ -366,6 +366,7 @@ export class Engine {
     if (extra.isOverlay) {
       fitOpts.radius = (chromaOn || masked) ? 0 : clip.radius;
       fitOpts.shadow = clip.shadow && !chromaOn && !blended && !masked;
+      if (clip.borderW > 0) fitOpts.border = { w: clip.borderW, color: clip.borderColor || '#fff' };
     }
     this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot, fitOpts);
     this.ctx.restore();
@@ -479,6 +480,16 @@ export class Engine {
     if (opts && opts.mask) { this._maskPath(ctx, opts.mask, w, h); ctx.clip(); }
     else if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip(); }
     ctx.drawImage(src, -w / 2, -h / 2, w, h);
+    // Borde de la superposición (se dibuja dentro del recorte, por eso el doble
+    // de grosor: la mitad visible queda pegada al borde de la forma).
+    if (opts && opts.border && opts.border.w > 0) {
+      ctx.lineWidth = opts.border.w * 2 * Math.min(w, h);
+      ctx.strokeStyle = opts.border.color;
+      ctx.lineJoin = 'round';
+      if (opts.mask) { this._maskPath(ctx, opts.mask, w, h); ctx.stroke(); }
+      else if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.stroke(); }
+      else ctx.strokeRect(-w / 2, -h / 2, w, h);
+    }
     ctx.restore();
   }
 

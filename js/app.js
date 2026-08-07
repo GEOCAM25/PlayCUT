@@ -781,8 +781,11 @@ function openAdjustSheet(clip, track) {
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
   updateFillUI(clip);
   // Mezcla: solo para superposiciones.
-  $$('.only-overlay').forEach(l => l.style.display = track === 'overlay' ? (l.classList.contains('opt-chips') ? 'flex' : 'block') : 'none');
+  $$('.only-overlay').forEach(l => l.style.display = track === 'overlay' ? (l.classList.contains('opt-chips') ? 'flex' : (l.classList.contains('opt-grid') ? 'grid' : 'block')) : 'none');
   setActive('#blend-row', 'blend', clip.blend || 'normal');
+  setActive('#border-row', 'border', clip.borderW > 0 ? (clip.borderColor || '#ffffff') : 'off');
+  set('#adj-borderw', clip.borderW ? Math.round(clip.borderW * 100) : 0);
+  $('#out-borderw').textContent = (clip.borderW ? Math.round(clip.borderW * 100) : 0) + '%';
   setActive('#mask-row', 'mask', clip.mask || 'none');
   updateKfUI(clip);
   updateAdjustOutputs();
@@ -870,13 +873,16 @@ function bindAdjust() {
     c.opacity = (+$('#adj-opacity').value) / 100;
     c.animInDur = +$('#adj-animindur').value;
     c.animOutDur = +$('#adj-animoutdur').value;
+    c.borderW = (+$('#adj-borderw').value) / 100;
+    $('#out-borderw').textContent = $('#adj-borderw').value + '%';
+    if (adjustTarget.track === 'overlay') setActive('#border-row', 'border', c.borderW > 0 ? (c.borderColor || '#ffffff') : 'off');
     if (c.keyframes && c.keyframes.length) { upsertKeyframe(c, adjustTarget.track); updateKfUI(c); }
     updateAdjustOutputs();
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
   };
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
    '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-grain', '#adj-opacity',
-   '#adj-animindur', '#adj-animoutdur']
+   '#adj-animindur', '#adj-animoutdur', '#adj-borderw']
     .forEach(sel => $(sel).addEventListener('input', apply));
 
   $('#anim-in-row').addEventListener('click', (e) => {
@@ -935,6 +941,28 @@ function bindAdjust() {
   $('#blend-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-blend]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.blend = b.dataset.blend; setActive('#blend-row', 'blend', b.dataset.blend);
+    engine.render(engine.playhead); scheduleSave();
+  });
+  const PIP_POS = {
+    tl: [-0.28, -0.32], tc: [0, -0.32], tr: [0.28, -0.32],
+    ml: [-0.28, 0], c: [0, 0], mr: [0.28, 0],
+    bl: [-0.28, 0.32], bc: [0, 0.32], br: [0.28, 0.32],
+  };
+  $('#pip-pos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pos]'); if (!b || !adjustTarget) return;
+    const p = PIP_POS[b.dataset.pos]; if (!p) return;
+    pushHistory();
+    adjustTarget.clip.offsetX = p[0]; adjustTarget.clip.offsetY = p[1];
+    if (adjustTarget.clip.keyframes && adjustTarget.clip.keyframes.length) upsertKeyframe(adjustTarget.clip, adjustTarget.track);
+    engine.render(engine.playhead); scheduleSave(); haptic(8);
+  });
+  $('#border-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-border]'); if (!b || !adjustTarget) return;
+    const c = adjustTarget.clip;
+    if (b.dataset.border === 'off') { c.borderW = 0; }
+    else { c.borderColor = b.dataset.border; if (!c.borderW) c.borderW = 0.04; }
+    setActive('#border-row', 'border', c.borderW > 0 ? c.borderColor : 'off');
+    $('#adj-borderw').value = Math.round(c.borderW * 100); $('#out-borderw').textContent = Math.round(c.borderW * 100) + '%';
     engine.render(engine.playhead); scheduleSave();
   });
   $('#mask-row').addEventListener('click', (e) => {

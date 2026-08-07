@@ -180,6 +180,30 @@
           <button class="chip" data-blend="difference">Invertir</button>
         </div>
 
+        <p class="sheet-sub only-overlay">Posición rápida</p>
+        <div class="opt-grid three only-overlay" id="pip-pos">
+          <button class="opt" data-pos="tl">↖</button>
+          <button class="opt" data-pos="tc">↑</button>
+          <button class="opt" data-pos="tr">↗</button>
+          <button class="opt" data-pos="ml">←</button>
+          <button class="opt" data-pos="c">●</button>
+          <button class="opt" data-pos="mr">→</button>
+          <button class="opt" data-pos="bl">↙</button>
+          <button class="opt" data-pos="bc">↓</button>
+          <button class="opt" data-pos="br">↘</button>
+        </div>
+
+        <p class="sheet-sub only-overlay">Borde</p>
+        <div class="opt-chips only-overlay" id="border-row">
+          <button class="chip" data-border="off">Sin borde</button>
+          <button class="chip" data-border="#ffffff">Blanco</button>
+          <button class="chip" data-border="#000000">Negro</button>
+          <button class="chip" data-border="#ff3b6b">Rosa</button>
+          <button class="chip" data-border="#3ba8ff">Azul</button>
+        </div>
+        <label class="only-overlay">Grosor del borde <output id="out-borderw">0%</output>
+          <input id="adj-borderw" type="range" min="0" max="8" value="0" /></label>
+
         <p class="sheet-sub">Movimiento <span class="badge-pro">PRO</span></p>
         <div class="opt-chips" id="motion-row">
           <button class="chip" data-motion="none">Ninguno</button>

@@ -101,6 +101,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     fillMode: 'contain',
     scale: 0.42, offsetX: 0.26, offsetY: -0.28, rotate: 0,
     radius: 0.04, shadow: true, blend: 'normal',
+    borderW: 0, borderColor: '#ffffff',
     mask: 'none', keyframes: [],
     chroma: { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 },
   };
@@ -176,6 +177,7 @@ export function normalizeProject(p) {
     c.volume = c.volume ?? 1; c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0;
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
     c.blend = c.blend || 'normal';
+    c.borderW = c.borderW ?? 0; c.borderColor = c.borderColor || '#ffffff';
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0; c.grain = c.grain ?? 0;
     c.animIn = c.animIn || 'none'; c.animOut = c.animOut || 'none';

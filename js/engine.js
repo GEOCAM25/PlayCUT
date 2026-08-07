@@ -511,6 +511,16 @@ export class Engine {
       ctx.bezierCurveTo(3 * u, -11 * u, 8 * u, -10 * u, 8 * u, -5 * u);
       ctx.bezierCurveTo(8 * u, -1 * u, 2 * u, 1 * u, 0, 5 * u);
       ctx.closePath();
+    } else if (mask === 'diamond') {
+      ctx.moveTo(0, -ry); ctx.lineTo(rx, 0); ctx.lineTo(0, ry); ctx.lineTo(-rx, 0); ctx.closePath();
+    } else if (mask === 'hexagon' || mask === 'pentagon') {
+      const sides = mask === 'hexagon' ? 6 : 5;
+      for (let i = 0; i < sides; i++) {
+        const a = (Math.PI * 2 / sides) * i - Math.PI / 2;
+        const x = Math.cos(a) * s, y = Math.sin(a) * s;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
     } else {
       ctx.rect(-rx, -ry, w, h);
     }

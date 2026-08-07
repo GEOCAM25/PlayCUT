@@ -1154,6 +1154,18 @@ function bindRatio() {
     setActive('#ratio-grid', 'ratio', r);
     engine.applyRatio(); fitPreview(); refresh();
   });
+  $('#btn-swap-orient').addEventListener('click', () => {
+    pushHistory();
+    const w = project.height, h = project.width; // intercambia ancho/alto
+    project.width = w; project.height = h;
+    // Busca una etiqueta de formato que coincida; si no, usa una a medida.
+    let label = Object.keys(RATIOS).find(k => RATIOS[k][0] === w && RATIOS[k][1] === h);
+    if (!label) { const parts = (project.ratio || '').split(':'); label = parts.length === 2 ? `${parts[1]}:${parts[0]}` : `${w}:${h}`; }
+    project.ratio = label;
+    setActive('#ratio-grid', 'ratio', label);
+    engine.applyRatio(); fitPreview(); refresh();
+    toast(w > h ? 'Lienzo horizontal' : 'Lienzo vertical');
+  });
 }
 
 // ---------- Texto ----------

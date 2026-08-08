@@ -837,12 +837,13 @@ export class Engine {
   tick() {
     if (!this.playing) return;
     const now = performance.now();
-    let t = this.startPlayhead + (now - this.startPerf) / 1000;
+    const prate = this.previewRate || 1;
+    let t = this.startPlayhead + ((now - this.startPerf) / 1000) * prate;
     // Reloj guiado por el vídeo: si la decodificación se atrasa, no dejamos que
     // el reloj adelante al fotograma real (evita el «tirón» al resincronizar).
     const lead = this._videoLeadTime();
-    if (lead != null && t > lead + 0.05) {
-      t = Math.max(this.playhead, lead + 0.05); // monótono: nunca retrocede
+    if (lead != null && t > lead + 0.05 * prate) {
+      t = Math.max(this.playhead, lead + 0.05 * prate); // monótono: nunca retrocede
       this.startPerf = now; this.startPlayhead = t; // reancla el reloj de pared
     }
     if (t >= this.duration) {
@@ -918,7 +919,7 @@ export class Engine {
       // scrubbing). Si solo va un poco atrasado (decodificación), NO saltamos:
       // el reloj guiado por vídeo ya espera al fotograma real.
       if (drift > 0.34 || drift < -0.7) { try { rec.el.currentTime = expected; } catch {} }
-      rec.el.playbackRate = clip.speed || 1;
+      rec.el.playbackRate = (clip.speed || 1) * (this.previewRate || 1);
       if (rec.el.paused) rec.el.play().catch(() => {});
       // Crossfade de audio durante transición.
       let g = this._vol(clip);
@@ -936,6 +937,7 @@ export class Engine {
       if (t >= start && t < end) {
         const expected = clip.inPoint + (t - start);
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
+        rec.el.playbackRate = this.previewRate || 1;
         if (rec.el.paused) rec.el.play().catch(() => {});
         setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);
       } else if (!rec.el.paused) rec.el.pause();
@@ -952,7 +954,7 @@ export class Engine {
         const expected = clip.inPoint + (t - start) * (clip.speed || 1);
         const odrift = rec.el.currentTime - expected;
         if (odrift > 0.34 || odrift < -0.7) { try { rec.el.currentTime = expected; } catch {} }
-        rec.el.playbackRate = clip.speed || 1;
+        rec.el.playbackRate = (clip.speed || 1) * (this.previewRate || 1);
         if (rec.el.paused) rec.el.play().catch(() => {});
         setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);
       } else if (!rec.el.paused) rec.el.pause();
@@ -999,6 +1001,7 @@ export class Engine {
 
   // ==================== EXPORTAR EN ALTA RESOLUCIÓN ====================
   beginExport(w, h) {
+    this._prevRate = this.previewRate; this.previewRate = 1; // el video final va a 1x
     this._prevCanvas = this.canvas; this._prevCtx = this.ctx;
     this._exporting = true;
     const c = document.createElement('canvas');
@@ -1007,6 +1010,7 @@ export class Engine {
     return c;
   }
   endExport() {
+    this.previewRate = this._prevRate || 1;
     this._exporting = false;
     if (this._prevCanvas) { this.canvas = this._prevCanvas; this.ctx = this._prevCtx; this._prevCanvas = null; }
     this.render(this.playhead);

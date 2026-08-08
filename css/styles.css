@@ -934,3 +934,13 @@ body.tut-open { overflow: hidden; }
 .platform-item.ok .platform-dot { background: rgba(53,231,155,.16); color: var(--ok); }
 .platform-name { font-weight: 650; flex: 0 0 auto; }
 .platform-why { color: var(--text-faint); font-size: 12px; margin-left: auto; text-align: right; }
+
+/* ---------- Velocidad de la vista previa ---------- */
+.rate-btn {
+  flex: 0 0 auto; min-width: 40px; height: 30px; padding: 0 9px;
+  background: var(--bg-3); border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  color: var(--text-dim); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  transition: transform var(--t-fast) var(--spring), background var(--t-med) var(--ease), color var(--t-med) var(--ease);
+}
+.rate-btn:active { transform: scale(.92); }
+.rate-btn.active { background: var(--grad); border-color: transparent; color: #fff; box-shadow: var(--sh-glow); }

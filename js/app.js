@@ -354,6 +354,23 @@ function setIcon(el, id) {
   const use = el.querySelector('use');
   if (use) use.setAttribute('href', '#ic-' + id);
 }
+// Velocidad de la vista previa: solo afecta a cómo lo ves mientras editas.
+// El video exportado SIEMPRE sale a velocidad normal.
+const PREVIEW_RATES = [1, 1.5, 2, 0.5];
+let prateIdx = 0;
+function cyclePreviewRate() {
+  prateIdx = (prateIdx + 1) % PREVIEW_RATES.length;
+  const r = PREVIEW_RATES[prateIdx];
+  engine.previewRate = r;
+  const btn = $('#btn-prate');
+  btn.textContent = (r === 1 ? '1' : String(r)) + '×';
+  btn.classList.toggle('active', r !== 1);
+  // Reancla el reloj para que el cambio se note ya mismo.
+  if (engine.playing) { engine.startPerf = performance.now(); engine.startPlayhead = engine.playhead; }
+  haptic(8);
+  toast(r === 1 ? 'Vista previa a velocidad normal' : `Vista previa a ${r}× (el video exportado no cambia)`);
+}
+
 function setPlayIcon(playing) {
   setIcon(els.btnPlay, playing ? 'pause' : 'play');
   els.btnPlay.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
@@ -2268,6 +2285,7 @@ async function main() {
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
   bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard();
   bindPro(); bindTutorial(); refreshProUI();
+  $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

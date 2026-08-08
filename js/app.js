@@ -468,6 +468,7 @@ function bindToolbar() {
       case 'beat': if (requirePro('beat')) beatMarkers(); break;
       case 'safe': if (requirePro('safe')) toggleSafeZones(); break;
       case 'grab-frame': if (requirePro('frame')) grabFrame(); break;
+      case 'histogram': if (requirePro('histogram')) toggleHistogram(); break;
     }
   });
 
@@ -615,6 +616,21 @@ function toggleSafeZones() {
     : 'Guías desactivadas');
 }
 
+// Histograma en vivo (herramienta de colorista): muestra el reparto de luces
+// y sombras del fotograma. Solo se ve en la app, nunca sale en el video.
+function toggleHistogram() {
+  const cv = $('#histogram');
+  const on = cv.hidden;
+  cv.hidden = !on;
+  engine.histogramCanvas = on ? cv : null;
+  engine._histAt = 0;
+  const btn = $('#toolbar-main [data-action="histogram"]');
+  if (btn) btn.classList.toggle('tool-on', on);
+  engine.render(engine.playhead);
+  haptic(10);
+  toast(on ? 'Histograma activado — mira si el video está quemado u oscuro' : 'Histograma desactivado');
+}
+
 // Guarda el fotograma actual como foto PNG (a resolución del proyecto).
 async function grabFrame() {
   try {
@@ -677,6 +693,54 @@ function bindColorCard() {
   });
   $('#btn-add-intro').addEventListener('click', addIntro);
   $('#btn-add-outro').addEventListener('click', addOutro);
+  $('#proj-presets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-preset]'); if (!b) return;
+    applyProjectPreset(b.dataset.preset);
+  });
+}
+
+// Estilos de proyecto: dejan todo el video con un mismo acabado de un toque.
+const PROJECT_PRESETS = {
+  reel: {
+    nombre: 'Reel dinámico', ratio: '9:16',
+    clip: { filter: 'vivid', motion: 'zoomIn', animIn: 'pop', animInDur: 0.4, temp: 8, vignette: 12, grain: 0 },
+    transition: { type: 'whip', duration: 0.4 },
+    fadeIn: 0.2, fadeOut: 0.5,
+  },
+  cine: {
+    nombre: 'Cine', ratio: '16:9',
+    clip: { filter: 'cine', motion: 'panR', animIn: 'fade', animInDur: 0.8, temp: -6, vignette: 38, grain: 22 },
+    transition: { type: 'dissolve', duration: 0.9 },
+    fadeIn: 1, fadeOut: 1.2,
+  },
+  vlog: {
+    nombre: 'Vlog limpio', ratio: '9:16',
+    clip: { filter: 'sharp', motion: 'none', animIn: 'fade', animInDur: 0.3, temp: 4, vignette: 0, grain: 0 },
+    transition: { type: 'fadeblack', duration: 0.35 },
+    fadeIn: 0.3, fadeOut: 0.6,
+  },
+};
+function applyProjectPreset(key) {
+  const p = PROJECT_PRESETS[key];
+  if (!p) return;
+  pushHistory();
+  // Formato del lienzo
+  if (RATIOS[p.ratio]) {
+    const [w, h] = RATIOS[p.ratio];
+    project.ratio = p.ratio; project.width = w; project.height = h;
+  }
+  project.fadeIn = p.fadeIn; project.fadeOut = p.fadeOut;
+  // Acabado de cada clip (respeta los que estén bloqueados)
+  const vids = project.tracks.video;
+  vids.forEach((c, i) => {
+    if (c.locked) return;
+    Object.assign(c, p.clip);
+    if (i > 0) c.transition = { ...p.transition };
+  });
+  for (const c of project.tracks.overlay) if (!c.locked) Object.assign(c, { filter: p.clip.filter, animIn: p.clip.animIn });
+  engine.applyRatio(); fitPreview(); refresh(); pushHistory(); closeSheets();
+  haptic([12, 30, 12]);
+  toast(`Estilo «${p.nombre}» aplicado a todo el video`);
 }
 // Genera un clip de imagen de color sólido (para tarjetas, intros y outros).
 async function makeColorClip(color, dur = 3, name = 'Color') {

@@ -213,6 +213,14 @@ export class Engine {
     // TikTok/Reels/Shorts. Solo ayuda visual — nunca se exporta.
     if (this.showSafeZones && !this._exporting) this._drawSafeZones();
 
+    // Histograma en vivo. Se pinta en un lienzo APARTE (nunca sobre la vista
+    // previa) para que no se exporte ni se lea a sí mismo en el fotograma
+    // siguiente. Se refresca a ~8 fps: leer píxeles es caro.
+    if (this.histogramCanvas && !this._exporting) {
+      const nowH = performance.now();
+      if (nowH - (this._histAt || 0) > 125) { this._histAt = nowH; this._drawHistogram(); }
+    }
+
     // Durante la exportación, fuerza la captura de este fotograma.
     if (this._captureTrack && this._captureTrack.requestFrame) {
       try { this._captureTrack.requestFrame(); } catch {}
@@ -248,6 +256,57 @@ export class Engine {
       if (vs.b) this.drawTransition(vs); else this.drawClip(vs.a, vs.localA, {});
     } finally { this.canvas = savedCanvas; this.ctx = savedCtx; }
     return await new Promise((res) => off.toBlob(res, 'image/png'));
+  }
+
+  // Histograma RGB del fotograma actual: muestra cómo se reparten las luces
+  // y las sombras. Útil para ver si el video está quemado o muy oscuro.
+  _drawHistogram() {
+    const out = this.histogramCanvas;
+    const src = this.previewCanvas;
+    if (!out || !src.width || !src.height) return;
+    let data;
+    try {
+      // Muestreo reducido: basta una rejilla para la forma de la curva.
+      const s = this._histScratch || (this._histScratch = document.createElement('canvas'));
+      const W = 160, H = Math.max(1, Math.round(160 * src.height / src.width));
+      s.width = W; s.height = H;
+      const sc = s.getContext('2d', { willReadFrequently: true });
+      sc.drawImage(src, 0, 0, W, H);
+      data = sc.getImageData(0, 0, W, H).data;
+    } catch { return; }
+
+    const r = new Uint32Array(256), g = new Uint32Array(256), b = new Uint32Array(256);
+    for (let i = 0; i < data.length; i += 4) { r[data[i]]++; g[data[i + 1]]++; b[data[i + 2]]++; }
+    let max = 1;
+    for (let i = 1; i < 255; i++) { // ignora los extremos, suelen dominar
+      if (r[i] > max) max = r[i];
+      if (g[i] > max) max = g[i];
+      if (b[i] > max) max = b[i];
+    }
+
+    const ctx = out.getContext('2d');
+    const W = out.width, H = out.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(6,6,10,.72)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    const draw = (arr, color) => {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let i = 0; i < 256; i++) {
+        const x = (i / 255) * W;
+        const y = H - Math.min(1, arr[i] / max) * (H - 3);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    draw(r, 'rgba(255,64,80,.55)');
+    draw(g, 'rgba(60,235,140,.55)');
+    draw(b, 'rgba(70,150,255,.55)');
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   // Zonas seguras para redes verticales: arriba el nombre/estado, abajo la

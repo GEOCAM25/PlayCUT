@@ -106,6 +106,7 @@
 
     <div class="preview-wrap">
       <canvas id="preview" width="1080" height="1920"></canvas>
+      <canvas id="histogram" class="histogram" width="256" height="90" hidden></canvas>
       <div id="preview-empty" class="preview-empty">
         <div class="empty-cta">
           <span class="empty-plus">＋</span>
@@ -155,6 +156,7 @@
       <button class="tool" data-action="beat" data-pro="beat"><i><svg class="ic" aria-hidden="true"><use href="#ic-beat"/></svg></i><span>Al ritmo</span></button>
       <button class="tool" data-action="safe" data-pro="safe"><i><svg class="ic" aria-hidden="true"><use href="#ic-safe"/></svg></i><span>Guías</span></button>
       <button class="tool" data-action="grab-frame" data-pro="frame"><i><svg class="ic" aria-hidden="true"><use href="#ic-camera"/></svg></i><span>Foto</span></button>
+      <button class="tool" data-action="histogram" data-pro="histogram"><i><svg class="ic" aria-hidden="true"><use href="#ic-adjust"/></svg></i><span>Histograma</span></button>
       <button class="tool" data-action="paste" id="btn-paste" hidden><i><svg class="ic" aria-hidden="true"><use href="#ic-paste"/></svg></i><span>Pegar</span></button>
     </nav>
 
@@ -604,9 +606,17 @@
       <h3>Fondos y plantillas</h3>
       <p class="sheet-sub">Plantillas con título</p>
       <div class="opt-grid two">
-        <button class="opt" id="btn-add-intro"><span class="opt-ico">🎬</span>Intro con título</button>
-        <button class="opt" id="btn-add-outro"><span class="opt-ico">🏁</span>Outro de cierre</button>
+        <button class="opt" id="btn-add-intro"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-media"/></svg></span>Intro con título</button>
+        <button class="opt" id="btn-add-outro"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-ratio"/></svg></span>Outro de cierre</button>
       </div>
+
+      <p class="sheet-sub">Estilos listos para publicar</p>
+      <div class="opt-grid" id="proj-presets">
+        <button class="opt" data-preset="reel"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-anim"/></svg></span>Reel dinámico</button>
+        <button class="opt" data-preset="cine"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-adjust"/></svg></span>Cine</button>
+        <button class="opt" data-preset="vlog"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-voice"/></svg></span>Vlog limpio</button>
+      </div>
+      <p class="export-meta">Aplica de golpe formato, filtro, movimiento, transiciones y fundidos a todo el proyecto.</p>
       <p class="sheet-sub">Tarjeta de color</p>
       <p class="export-meta">Añade una tarjeta de color (títulos o separadores). Se añade al final del video.</p>
       <div class="color-row" id="color-card-swatches">

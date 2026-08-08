@@ -898,3 +898,21 @@ body.tut-open { overflow: hidden; }
   #btn-ratio { display: none; }
   .project-name-input { font-size: 14px; }
 }
+
+/* ---------- Histograma en vivo (solo en pantalla, nunca se exporta) ---------- */
+.histogram {
+  position: absolute; right: 10px; top: 10px; z-index: 6;
+  width: 128px; height: 45px; border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--sh-2); pointer-events: none;
+  background: rgba(6,6,10,.7);
+}
+@media (min-width: 1024px) and (pointer: fine) {
+  .histogram { width: 200px; height: 70px; right: 26px; top: 26px; }
+}
+/* Herramientas de conmutación (guías, histograma) cuando están activas */
+.tool.tool-on i {
+  background: var(--grad); border-color: transparent; color: #fff;
+  box-shadow: var(--sh-glow);
+}
+.tool.tool-on span { color: var(--text); }

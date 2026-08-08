@@ -916,3 +916,21 @@ body.tut-open { overflow: hidden; }
   box-shadow: var(--sh-glow);
 }
 .tool.tool-on span { color: var(--text); }
+
+/* ---------- ¿Sirve para publicar? (comprobación por red social) ---------- */
+.platform-list { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; }
+.platform-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-3); border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm); padding: 10px 12px; font-size: 13px;
+}
+.platform-dot {
+  width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  background: rgba(255,84,104,.16); color: var(--danger);
+}
+.platform-item.ok { border-color: rgba(53,231,155,.3); }
+.platform-item.ok .platform-dot { background: rgba(53,231,155,.16); color: var(--ok); }
+.platform-name { font-weight: 650; flex: 0 0 auto; }
+.platform-why { color: var(--text-faint); font-size: 12px; margin-left: auto; text-align: right; }

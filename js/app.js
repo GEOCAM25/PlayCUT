@@ -501,6 +501,8 @@ function bindToolbar() {
       case 'clip-split': splitAtPlayhead(); break;
       case 'clip-duplicate': duplicateClip(sel); break;
       case 'clip-copy': copyClip(sel); break;
+      case 'clip-extract-audio': extractClipAudio(sel); break;
+      case 'clip-mirror': mirrorDuplicate(sel); break;
       case 'clip-lock': toggleLock(sel); break;
       case 'clip-left': moveClip(sel, -1); break;
       case 'clip-right': moveClip(sel, 1); break;
@@ -857,6 +859,95 @@ function deleteClip(sel) {
   const i = arr.findIndex(c => c.id === sel.clip.id);
   if (i >= 0) arr.splice(i, 1);
   timeline.clearSelection(); onClipSelected(null); refresh(); haptic(25); toast('Clip borrado');
+}
+
+// ---------- Extraer el audio de un clip a su propia pista ----------
+// Así puedes moverlo, recortarlo o cambiarle el volumen por separado.
+async function extractClipAudio(sel) {
+  const c = sel.clip;
+  if (c.type !== 'video') { toast('Solo los clips de video tienen audio que extraer'); return; }
+  try {
+    engine.pause(); setPlayIcon(false);
+    busy('Extrayendo el audio del clip…', 'Convirtiendo a MP3 en tu dispositivo');
+    const rec = await loadMediaRecord(c.mediaId);
+    if (!rec) { busyDone(); toast('No se encontró el archivo del clip'); return; }
+    const mp3 = await mediaToMp3(rec.blob, (p) => {
+      if (typeof p === 'number' && isFinite(p)) busyUpdate(`Convirtiendo · ${Math.round(p * 100)}%`);
+    });
+    const base = (rec.name || 'audio').replace(/\.[^.]+$/, '');
+    const nuevo = await importFile(new File([mp3], base + '.mp3', { type: 'audio/mpeg' }));
+    mediaNames.set(nuevo.id, base);
+    pushHistory();
+    // El audio arranca donde empieza el clip en la línea de tiempo.
+    const start = sel.track === 'video'
+      ? videoClipStart(project.tracks.video, project.tracks.video.indexOf(c))
+      : (c.start || 0);
+    const a = createAudioClip({ mediaId: nuevo.id, duration: nuevo.duration || (c.outPoint - c.inPoint), start, name: base });
+    // Respeta el recorte del clip original.
+    a.inPoint = Math.max(0, c.inPoint || 0);
+    a.outPoint = Math.min(a.srcDuration || c.outPoint, c.outPoint);
+    if (a.outPoint <= a.inPoint) { a.inPoint = 0; a.outPoint = a.srcDuration || 1; }
+    project.tracks.audio.push(a);
+    ensurePeaks(nuevo.id);
+    c.muted = true; // evita oír el audio dos veces
+    busyDone();
+    refresh(); pushHistory(); timeline.select(a.id, 'audio');
+    haptic(15); toast('Audio extraído — el clip original quedó en silencio');
+  } catch (e) {
+    busyDone(); console.error(e);
+    toast('No se pudo extraer el audio: ' + (e.message || ''));
+  }
+}
+
+// ---------- Duplicar en espejo ----------
+// Copia el clip volteado: sirve para simetrías y efectos de "reflejo".
+function mirrorDuplicate(sel) {
+  if (!['video', 'overlay'].includes(sel.track)) { toast('El espejo es para clips de video, fotos o superposiciones'); return; }
+  pushHistory();
+  const copia = JSON.parse(JSON.stringify(sel.clip));
+  copia.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  copia.flipH = !sel.clip.flipH;
+  copia.keyframes = [];
+  const arr = project.tracks[sel.track];
+  const i = arr.findIndex(x => x.id === sel.clip.id);
+  if (sel.track === 'overlay') copia.start = sel.clip.start + overlayDuration(sel.clip);
+  else copia.transition = { type: 'none', duration: 0.6 };
+  arr.splice(i + 1, 0, copia);
+  refresh(); pushHistory(); timeline.select(copia.id, sel.track);
+  haptic(12); toast('Copia en espejo añadida');
+}
+
+// ---------- ¿Sirve para publicar? ----------
+// Comprueba duración y formato contra los límites de cada red social.
+const PLATFORMS = [
+  { n: 'TikTok', max: 600, ratios: ['9:16'], nota: 'vertical' },
+  { n: 'Reels (Instagram)', max: 90, ratios: ['9:16'], nota: 'vertical' },
+  { n: 'Shorts (YouTube)', max: 60, ratios: ['9:16', '1:1', '4:5'], nota: 'vertical o cuadrado' },
+  { n: 'Feed de Instagram', max: 60, ratios: ['1:1', '4:5'], nota: 'cuadrado o 4:5' },
+  { n: 'YouTube', max: Infinity, ratios: ['16:9', '21:9'], nota: 'apaisado' },
+  { n: 'WhatsApp (estado)', max: 60, ratios: null, nota: 'cualquier formato' },
+];
+function renderPlatformCheck() {
+  const ul = $('#platform-check'); if (!ul) return;
+  const dur = projectDuration(project);
+  const ratio = project.ratio;
+  ul.innerHTML = '';
+  for (const p of PLATFORMS) {
+    const okDur = dur > 0 && dur <= p.max;
+    const okRatio = !p.ratios || p.ratios.includes(ratio);
+    const ok = okDur && okRatio;
+    const li = document.createElement('li');
+    li.className = 'platform-item' + (ok ? ' ok' : '');
+    let motivo;
+    if (dur <= 0) motivo = 'proyecto vacío';
+    else if (!okDur) motivo = `dura ${formatTime(dur)}, el máximo son ${p.max >= 600 ? '10 min' : p.max + 's'}`;
+    else if (!okRatio) motivo = `pide ${p.nota} (tienes ${ratio})`;
+    else motivo = `${formatTime(dur)} · ${ratio}`;
+    li.innerHTML = `<span class="platform-dot">${ok ? '✓' : '!'}</span>
+      <span class="platform-name">${escapeHtml(p.n)}</span>
+      <span class="platform-why">${escapeHtml(motivo)}</span>`;
+    ul.appendChild(li);
+  }
 }
 
 // ---------- Bloquear / desbloquear clip ----------
@@ -1661,6 +1752,7 @@ function bindExport() {
     setActive('#export-res', 'res', exportRes);
     setActive('#export-fps', 'fps', exportFps);
     updateExportMeta();
+    renderPlatformCheck();
     $('#export-config').hidden = false; $('#export-progress').hidden = true; $('#export-done').hidden = true;
     openSheet('sheet-export');
   });

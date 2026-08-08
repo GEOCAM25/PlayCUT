@@ -896,9 +896,31 @@ export class Engine {
     return g;
   }
 
+  // ¿Suena algo que NO sea música con ducking? (voz, audio del video, otro
+  // audio normal). Sirve para bajar la música automáticamente.
+  _otherAudioAt(t, vs) {
+    if (vs) {
+      for (const c of [vs.a, vs.b]) {
+        if (c && c.type === 'video' && !c.muted && (c.volume ?? 1) > 0.02) return true;
+      }
+    }
+    for (const c of this.project.tracks.audio) {
+      if (c.duck || c.muted || (c.volume ?? 1) <= 0.02) continue;
+      const d = c.outPoint - c.inPoint;
+      if (t >= c.start && t < c.start + d) return true;
+    }
+    return false;
+  }
+
   syncPlayback(t) {
     const vs = videoStateAt(this.project.tracks.video, t);
     const pf = this._projFadeGain(t);
+    // Atenuación suave: si cambiara de golpe se oiría un "clic".
+    const quiere = this._otherAudioAt(t, vs) ? (this.project.duckLevel ?? 0.25) : 1;
+    const paso = 0.08;
+    if (this._duck == null) this._duck = 1;
+    this._duck += Math.max(-paso, Math.min(paso, quiere - this._duck));
+    const duck = this._duck;
     const activeIds = new Set();
     if (vs) { if (vs.a) activeIds.add(vs.a.id); if (vs.b) activeIds.add(vs.b.id); }
 
@@ -939,7 +961,7 @@ export class Engine {
         if (Math.abs(rec.el.currentTime - expected) > 0.34) { try { rec.el.currentTime = expected; } catch {} }
         rec.el.playbackRate = this.previewRate || 1;
         if (rec.el.paused) rec.el.play().catch(() => {});
-        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf);
+        setClipGain(clip.id, this._vol(clip) * this._audioEnv(clip, t, start, end) * pf * (clip.duck ? duck : 1));
       } else if (!rec.el.paused) rec.el.pause();
     }
 

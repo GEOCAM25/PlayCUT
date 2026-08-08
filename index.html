@@ -422,10 +422,12 @@
       <div class="sheet-handle"></div>
       <h3 id="audio-title">Volumen y sonido</h3>
       <div class="opt-grid" id="audio-actions">
-        <button class="opt" id="btn-mute"><span class="opt-ico" id="mute-ico">🔊</span><span id="mute-label">Silenciar</span></button>
-        <button class="opt" id="btn-vol-all"><span class="opt-ico">📢</span>Aplicar a todos</button>
-        <button class="opt" id="btn-save-mp3"><span class="opt-ico">⬇️</span>Guardar MP3</button>
+        <button class="opt" id="btn-mute"><span class="opt-ico" id="mute-ico"><svg class="ic" aria-hidden="true"><use href="#ic-volume"/></svg></span><span id="mute-label">Silenciar</span></button>
+        <button class="opt" id="btn-vol-all"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-audio"/></svg></span>Aplicar a todos</button>
+        <button class="opt" id="btn-save-mp3"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-export"/></svg></span>Guardar MP3</button>
+        <button class="opt" id="btn-duck"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-volume"/></svg></span><span id="duck-label">Bajar con la voz</span></button>
       </div>
+      <p class="export-meta" id="duck-hint">«Bajar con la voz» hace que esta música se atenúe sola cuando suena tu voz o el audio del video.</p>
       <div class="sliders">
         <label>Volumen <output id="out-avol">100%</output>
           <input id="a-vol" type="range" min="0" max="200" value="100" /></label>

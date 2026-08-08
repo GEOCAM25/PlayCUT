@@ -1529,9 +1529,21 @@ function openAudioSheet(clip) {
   $('#a-vol').value = Math.round((clip.volume ?? 1) * 100);
   $('#a-fi').value = clip.fadeIn ?? 0;
   $('#a-fo').value = clip.fadeOut ?? 0;
-  updateAudioOutputs(); updateMuteBtn();
+  updateAudioOutputs(); updateMuteBtn(); updateDuckBtn();
   openSheet('sheet-audio-clip');
 }
+function updateDuckBtn() {
+  const on = !!(audioTarget && audioTarget.duck);
+  const btn = $('#btn-duck');
+  if (!btn) return;
+  // Solo tiene sentido en pistas de audio (música), no en el audio de un video.
+  const esAudio = audioTarget && audioTarget.type === 'audio';
+  btn.style.display = esAudio ? '' : 'none';
+  $('#duck-hint').style.display = esAudio ? '' : 'none';
+  btn.classList.toggle('active', on);
+  $('#duck-label').textContent = on ? 'Bajando con la voz' : 'Bajar con la voz';
+}
+
 function updateAudioOutputs() {
   $('#out-avol').textContent = $('#a-vol').value + '%';
   $('#out-afi').textContent = (+$('#a-fi').value).toFixed(1) + 's';
@@ -1565,6 +1577,15 @@ function bindAudioClip() {
     for (const c of [...project.tracks.video, ...project.tracks.overlay, ...project.tracks.audio]) c.volume = v;
     engine.applyGains(); engine.render(engine.playhead); timeline.render(); scheduleSave();
     toast('Volumen aplicado a todos los clips');
+  });
+  $('#btn-duck').addEventListener('click', () => {
+    if (!audioTarget) return;
+    pushHistory();
+    audioTarget.duck = !audioTarget.duck;
+    updateDuckBtn(); timeline.render(); scheduleSave(); haptic(10);
+    toast(audioTarget.duck
+      ? 'Esta música bajará sola cuando suene la voz'
+      : 'La música ya no baja sola');
   });
   $('#btn-save-mp3').addEventListener('click', async () => {
     if (!audioTarget) return;

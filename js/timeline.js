@@ -132,7 +132,9 @@ export class Timeline {
       el.classList.add('type-audio');
       const peaks = this._mediaPeaks(clip.mediaId);
       if (peaks) this._drawWave(el, clip, peaks);
-      this._addLabel(el, (this._mediaName(clip.mediaId) || 'Audio') + (clip.muted ? ' · sin sonido' : ''));
+      this._addLabel(el, (this._mediaName(clip.mediaId) || 'Audio')
+        + (clip.muted ? ' · sin sonido' : '')
+        + (clip.duck ? ' · baja con la voz' : ''));
       this._addTrimHandles(el, clip, 'audio');
       this._makeMovable(el, clip, 'audio');
       track.appendChild(el);

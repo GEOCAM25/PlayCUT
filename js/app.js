@@ -12,6 +12,7 @@ import { Timeline } from './timeline.js';
 import { exportProject, computeExportSize } from './exporter.js';
 import { mediaToMp3 } from './audioextract.js';
 import { encodeGif } from './gifencoder.js';
+import { reverseVideo, REVERSE_MAX_DUR } from './reverse.js';
 import * as perf from './perf.js';
 import * as pro from './pro.js';
 import * as tutorial from './tutorial.js';
@@ -503,6 +504,7 @@ function bindToolbar() {
       case 'clip-copy': copyClip(sel); break;
       case 'clip-extract-audio': extractClipAudio(sel); break;
       case 'clip-mirror': mirrorDuplicate(sel); break;
+      case 'clip-reverse': if (requirePro('reverse')) reverseClip(sel); break;
       case 'clip-lock': toggleLock(sel); break;
       case 'clip-left': moveClip(sel, -1); break;
       case 'clip-right': moveClip(sel, 1); break;
@@ -896,6 +898,52 @@ async function extractClipAudio(sel) {
   } catch (e) {
     busyDone(); console.error(e);
     toast('No se pudo extraer el audio: ' + (e.message || ''));
+  }
+}
+
+// ---------- Video al revés (marcha atrás) ----------
+async function reverseClip(sel) {
+  const c = sel.clip;
+  if (c.type !== 'video') { toast('Solo se puede invertir un clip de video'); return; }
+  const dur = c.outPoint - c.inPoint;
+  if (dur > REVERSE_MAX_DUR) {
+    toast(`El tramo dura ${Math.round(dur)}s. Recórtalo a ${REVERSE_MAX_DUR}s o menos para invertirlo`);
+    return;
+  }
+  try {
+    engine.pause(); setPlayIcon(false);
+    busy('Creando el video al revés…', 'Recorriendo los fotogramas hacia atrás');
+    const rec = await loadMediaRecord(c.mediaId);
+    if (!rec) { busyDone(); toast('No se encontró el archivo del clip'); return; }
+    const res = await reverseVideo(rec.blob, c.inPoint || 0, c.outPoint, (p) => {
+      busyUpdate(`${Math.round(p * 100)}%`);
+    });
+    const ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm';
+    const nuevo = await importFile(new File([res.blob], 'al-reves.' + ext, { type: res.blob.type }));
+    if (nuevo.thumb) mediaThumbs.set(nuevo.id, nuevo.thumb);
+    mediaNames.set(nuevo.id, 'Al revés');
+    pushHistory();
+    // Sustituye el clip conservando su aspecto (filtros, encuadre, etc.).
+    const arr = project.tracks[sel.track];
+    const i = arr.findIndex(x => x.id === c.id);
+    const inv = JSON.parse(JSON.stringify(c));
+    inv.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    inv.mediaId = nuevo.id;
+    inv.srcDuration = nuevo.duration || res.duration;
+    inv.inPoint = 0;
+    inv.outPoint = inv.srcDuration;
+    inv.srcWidth = res.width; inv.srcHeight = res.height;
+    inv.speed = 1; inv.keyframes = [];
+    inv.muted = true; // el video invertido no lleva audio
+    delete inv._autoDur;
+    arr.splice(i, 1, inv);
+    busyDone();
+    refresh(); pushHistory(); timeline.select(inv.id, sel.track);
+    haptic([12, 30, 12]);
+    toast('Video al revés listo (queda sin sonido)');
+  } catch (e) {
+    busyDone(); console.error(e);
+    toast('No se pudo invertir: ' + (e.message || ''));
   }
 }
 

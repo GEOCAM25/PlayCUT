@@ -18,6 +18,7 @@ export const PRO_FEATURES = {
   beat: 'Marcadores al ritmo',
   histogram: 'Histograma en vivo',
   frame: 'Exportar fotograma',
+  reverse: 'Video al revés',
 };
 
 // Hash sencillo y estable (FNV-1a de 32 bits) en hexadecimal.

@@ -13,6 +13,8 @@ import { exportProject, computeExportSize } from './exporter.js';
 import { mediaToMp3 } from './audioextract.js';
 import { encodeGif } from './gifencoder.js';
 import * as perf from './perf.js';
+import * as pro from './pro.js';
+import * as tutorial from './tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -73,6 +75,53 @@ function busy(text, sub) {
 }
 function busyUpdate(sub) { const s = $('#busy-sub'); if (s) s.textContent = sub || ''; }
 function busyDone() { const el = $('#busy'); if (el) el.classList.remove('show'); }
+
+// ---------- PRO ----------
+// Marca visualmente todo lo que lleva data-pro y decide si se puede usar.
+function refreshProUI() {
+  const on = pro.isPro();
+  $$('[data-pro]').forEach(el => el.classList.toggle('pro-locked', !on));
+  $$('.badge-pro').forEach(b => { if (b.dataset.keep !== '1' && b.textContent.trim() === 'PRO') b.hidden = on; });
+  const locked = $('#pro-locked-view'), act = $('#pro-active-view');
+  if (locked && act) {
+    locked.hidden = on; act.hidden = !on;
+    const c = $('#pro-code-shown'); if (c) c.textContent = on ? ('Código usado: ' + pro.proCode()) : '';
+  }
+}
+// Puerta de acceso: si no hay PRO, abre la hoja y devuelve false.
+function requirePro(feature) {
+  if (pro.isPro()) return true;
+  openSheet('sheet-pro');
+  toast('«' + (pro.PRO_FEATURES[feature] || 'Esta función') + '» es PRO');
+  haptic(20);
+  return false;
+}
+function bindPro() {
+  $('#pro-redeem').addEventListener('click', () => {
+    const code = $('#pro-code').value.trim();
+    if (pro.redeem(code)) {
+      refreshProUI(); haptic([15, 40, 25]);
+      toast('¡PRO activado! Ya tienes todas las funciones');
+      $('#pro-code').value = '';
+    } else {
+      toast('Ese código no es válido');
+      $('#pro-code').select();
+    }
+  });
+  $('#pro-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#pro-redeem').click(); });
+  $('#pro-revoke').addEventListener('click', () => {
+    pro.revoke(); refreshProUI(); toast('PRO desactivado en este dispositivo');
+  });
+  $('#btn-pro').addEventListener('click', () => openSheet('sheet-pro'));
+}
+
+// ---------- Tutorial ----------
+function bindTutorial() {
+  $('#btn-tutorial').addEventListener('click', () => {
+    closeSheets();
+    setTimeout(() => tutorial.start(), 320);
+  });
+}
 function showScreen(name) { for (const k in screens) screens[k].classList.toggle('active', k === name); }
 function setActive(container, attr, value) {
   $$(`${container} [data-${attr}]`).forEach(b => b.classList.toggle('active', b.dataset[attr] === String(value)));
@@ -288,13 +337,26 @@ async function openProject(id) {
   showTipsOnce();
 }
 
+// La primera vez que se abre el editor se lanza la guía guiada; después
+// queda siempre disponible en Ajustes.
 function showTipsOnce() {
   if (localStorage.getItem('playcut.tips')) return;
   localStorage.setItem('playcut.tips', '1');
-  setTimeout(() => toast('Consejo: toca un clip para editarlo y arrastra sus bordes para recortar'), 1000);
+  if (tutorial.tutorialSeen()) return;
+  setTimeout(() => tutorial.start(), 700);
 }
 
-function setPlayIcon(playing) { els.btnPlay.textContent = playing ? '❚❚' : '▶'; }
+// Cambia el símbolo de un botón sin destruir su <svg> (usar textContent lo
+// borraría y el botón se quedaría vacío).
+function setIcon(el, id) {
+  if (!el) return;
+  const use = el.querySelector('use');
+  if (use) use.setAttribute('href', '#ic-' + id);
+}
+function setPlayIcon(playing) {
+  setIcon(els.btnPlay, playing ? 'pause' : 'play');
+  els.btnPlay.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
+}
 function togglePlay() {
   if (engine.playing) { engine.pause(); setPlayIcon(false); }
   else { if (projectDuration(project) <= 0) { toast('Añade contenido primero'); return; } engine.play(); setPlayIcon(true); }
@@ -403,6 +465,9 @@ function bindToolbar() {
       case 'paste': pasteClip(); break;
       case 'add-color': openSheet('sheet-color'); break;
       case 'marker': toggleMarker(); break;
+      case 'beat': if (requirePro('beat')) beatMarkers(); break;
+      case 'safe': if (requirePro('safe')) toggleSafeZones(); break;
+      case 'grab-frame': if (requirePro('frame')) grabFrame(); break;
     }
   });
 
@@ -536,6 +601,72 @@ function toggleMarker() {
   if (i >= 0) { project.markers.splice(i, 1); toast('Marcador quitado'); }
   else { project.markers.push({ t }); project.markers.sort((a, b) => a.t - b.t); toast('📍 Marcador añadido'); }
   timeline.render(); scheduleSave(); haptic(10);
+}
+
+// Guías de encuadre seguro (lo que tapan TikTok / Reels / Shorts).
+function toggleSafeZones() {
+  engine.showSafeZones = !engine.showSafeZones;
+  engine.render(engine.playhead);
+  const btn = $('#toolbar-main [data-action="safe"]');
+  if (btn) btn.classList.toggle('tool-on', engine.showSafeZones);
+  haptic(10);
+  toast(engine.showSafeZones
+    ? 'Guías activadas — deja lo importante dentro del recuadro'
+    : 'Guías desactivadas');
+}
+
+// Guarda el fotograma actual como foto PNG (a resolución del proyecto).
+async function grabFrame() {
+  try {
+    busy('Guardando la foto…');
+    const blob = await engine.captureBaseFrame();
+    busyDone();
+    if (!blob) { toast('Coloca el cursor sobre un video o foto'); return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${sanitize(project.name)}_foto.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    haptic(15); toast('📷 Foto del fotograma guardada');
+  } catch (e) { busyDone(); console.error(e); toast('No se pudo guardar la foto'); }
+}
+
+// Marcadores automáticos al ritmo de la música: busca los golpes fuertes
+// en la forma de onda del primer audio y deja un pin en cada uno.
+function beatMarkers() {
+  const audio = project.tracks.audio[0];
+  if (!audio) { toast('Añade primero una música para detectar su ritmo'); return; }
+  const peaks = mediaPeaks.get(audio.mediaId);
+  if (!peaks) { toast('Analizando la música… inténtalo en un segundo'); ensurePeaks(audio.mediaId); return; }
+  const src = audio.srcDuration || (audio.outPoint - audio.inPoint) || 1;
+  const n = peaks.length;
+  const from = Math.max(0, Math.floor((audio.inPoint || 0) / src * n));
+  const to = Math.min(n, Math.ceil((audio.outPoint || src) / src * n));
+  const span = Math.max(1, to - from);
+  // Media de la zona usada; un golpe es un pico claramente sobre la media.
+  let sum = 0;
+  for (let i = from; i < to; i++) sum += peaks[i];
+  const avg = sum / span;
+  const thr = Math.max(0.22, avg * 1.6);
+  const secPerBucket = (audio.outPoint - audio.inPoint) / span;
+  const MIN_GAP = 0.28; // no marcamos dos golpes casi pegados
+  pushHistory();
+  if (!project.markers) project.markers = [];
+  let added = 0, lastT = -99;
+  for (let i = from + 1; i < to - 1; i++) {
+    const v = peaks[i];
+    if (v < thr || v < peaks[i - 1] || v < peaks[i + 1]) continue;
+    const t = audio.start + (i - from) * secPerBucket;
+    if (t - lastT < MIN_GAP) continue;
+    if (project.markers.some(m => Math.abs(m.t - t) < 0.2)) { lastT = t; continue; }
+    project.markers.push({ t, beat: true });
+    lastT = t; added++;
+    if (added >= 120) break;
+  }
+  project.markers.sort((a, b) => a.t - b.t);
+  timeline.render(); scheduleSave(); pushHistory();
+  haptic(added ? [12, 30, 12] : 8);
+  toast(added ? `🎵 ${added} marcadores puestos al ritmo` : 'No se detectaron golpes claros en la música');
 }
 
 // Tarjeta de color: genera una imagen sólida y la añade al final del video.
@@ -709,7 +840,10 @@ function onClipSelected(clip) {
   els.clipTools.hidden = !has;
   if (has) {
     const lockBtn = $('#clip-tools [data-action="clip-lock"]');
-    if (lockBtn) { lockBtn.querySelector('i').textContent = clip.locked ? '🔓' : '🔒'; lockBtn.querySelector('span').textContent = clip.locked ? 'Desbloq.' : 'Bloquear'; }
+    if (lockBtn) {
+      setIcon(lockBtn, clip.locked ? 'unlock' : 'lock');
+      lockBtn.querySelector('span').textContent = clip.locked ? 'Desbloq.' : 'Bloquear';
+    }
     haptic(8);
   }
 }
@@ -738,7 +872,7 @@ function injectSheetChrome() {
     btn.className = 'sheet-close';
     btn.setAttribute('data-close-sheet', '');
     btn.setAttribute('aria-label', 'Cerrar');
-    btn.textContent = '✕';
+    btn.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg>';
     sheet.appendChild(btn);
     const inner = sheet.querySelector('.sheet-inner');
     if (inner) inner.addEventListener('pointerdown', (e) => {
@@ -985,6 +1119,7 @@ function bindAdjust() {
   });
   $('#blend-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-blend]'); if (!b || !adjustTarget) return;
+    if (b.dataset.blend !== 'normal' && !requirePro('blend')) return;
     adjustTarget.clip.blend = b.dataset.blend; setActive('#blend-row', 'blend', b.dataset.blend);
     engine.render(engine.playhead); scheduleSave();
   });
@@ -1012,10 +1147,12 @@ function bindAdjust() {
   });
   $('#mask-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-mask]'); if (!b || !adjustTarget) return;
+    if (b.dataset.mask !== 'none' && !requirePro('mask')) return;
     adjustTarget.clip.mask = b.dataset.mask; setActive('#mask-row', 'mask', b.dataset.mask);
     engine.render(engine.playhead); timeline.render(); scheduleSave();
   });
   $('#kf-add').addEventListener('click', () => {
+    if (!requirePro('keyframes')) return;
     if (!adjustTarget) return;
     upsertKeyframe(adjustTarget.clip, adjustTarget.track);
     updateKfUI(adjustTarget.clip); engine.render(engine.playhead); scheduleSave(); haptic(12);
@@ -1048,6 +1185,7 @@ function bindAdjust() {
 
   // Chroma key
   $('#chroma-row').addEventListener('click', (e) => {
+    { const b0 = e.target.closest('[data-chroma]'); if (b0 && b0.dataset.chroma !== 'off' && !requirePro('chroma')) return; }
     const b = e.target.closest('[data-chroma]'); if (!b || !adjustTarget) return;
     const v = b.dataset.chroma, c = adjustTarget.clip;
     if (v === 'pick') { startChromaPick(); return; }
@@ -1410,7 +1548,8 @@ function bindExport() {
     $('#export-config').hidden = false; $('#export-progress').hidden = true; $('#export-done').hidden = true;
     openSheet('sheet-export');
   });
-  $('#export-res').addEventListener('click', (e) => { const b = e.target.closest('[data-res]'); if (!b) return; exportRes = +b.dataset.res; setActive('#export-res', 'res', exportRes); updateExportMeta(); });
+  $('#export-res').addEventListener('click', (e) => { const b = e.target.closest('[data-res]'); if (!b) return; if (+b.dataset.res >= 2160 && !requirePro('4k')) return;
+    exportRes = +b.dataset.res; setActive('#export-res', 'res', exportRes); updateExportMeta(); });
   $('#export-fps').addEventListener('click', (e) => { const b = e.target.closest('[data-fps]'); if (!b) return; exportFps = +b.dataset.fps; setActive('#export-fps', 'fps', exportFps); updateExportMeta(); });
 
   $('#btn-start-export').addEventListener('click', async () => {
@@ -1805,6 +1944,7 @@ async function main() {
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
   bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard();
+  bindPro(); bindTutorial(); refreshProUI();
   await renderProjects();
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch {} }
 }

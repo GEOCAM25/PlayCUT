@@ -1,7 +1,7 @@
 // sw.js — Service Worker: cachea la app para que funcione sin internet.
 // El contenido del usuario NO se cachea aquí (vive en IndexedDB, en el dispositivo).
 
-const CACHE = 'playcut-v27';
+const CACHE = 'playcut-v29';
 const ASSETS = [
   './',
   './index.html',
@@ -17,6 +17,8 @@ const ASSETS = [
   './js/perf.js',
   './js/audioextract.js',
   './js/gifencoder.js',
+  './js/pro.js',
+  './js/tutorial.js',
   './js/vendor/lame.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

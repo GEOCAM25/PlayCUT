@@ -723,3 +723,178 @@ input[type="range"]::-moz-range-thumb {
   0%, 100% { box-shadow: 0 0 0 4px rgba(255,84,104,.18) !important; }
   50% { box-shadow: 0 0 0 12px rgba(255,84,104,.05) !important; }
 }
+
+/* ==================================================================
+   ICONOS SVG — trazo uniforme, heredan el color del botón
+   ================================================================== */
+.ic {
+  width: 1em; height: 1em; display: block;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  overflow: visible;
+}
+.tool i .ic { width: 21px; height: 21px; }
+.icon-btn .ic { width: 23px; height: 23px; }
+.icon-btn.mini .ic { width: 19px; height: 19px; }
+.icon-btn.play .ic { width: 17px; height: 17px; }
+.zoom-btn .ic { width: 16px; height: 16px; }
+.sheet-close .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+.opt-ico .ic, .chip .ic { width: 20px; height: 20px; }
+
+/* Botón Exportar con icono + texto */
+#btn-export { display: inline-flex; align-items: center; gap: 7px; }
+#btn-export .ic { width: 17px; height: 17px; stroke-width: 2; }
+
+/* ---------- Botón "atrás": destacado y en zona cómoda del pulgar ---------- */
+#btn-back {
+  background: var(--bg-3); border: 1px solid var(--line-soft);
+  width: 42px; height: 42px; border-radius: 13px; flex: 0 0 auto;
+  box-shadow: var(--inset-hi);
+  transition: transform var(--t-fast) var(--spring), background var(--t-med) var(--ease);
+}
+#btn-back:active { transform: scale(.92); background: var(--bg-4); }
+#btn-undo, #btn-redo, #btn-ratio, #btn-settings {
+  background: var(--bg-3); border: 1px solid var(--line-soft); border-radius: 11px;
+  transition: transform var(--t-fast) var(--spring), background var(--t-med) var(--ease), opacity var(--t-med) var(--ease);
+}
+#btn-undo:active, #btn-redo:active, #btn-ratio:active, #btn-settings:active { transform: scale(.9); background: var(--bg-4); }
+.editor-topbar { gap: 8px; }
+
+/* ==================================================================
+   TUTORIAL PARA PRINCIPIANTES
+   ================================================================== */
+.tut-root { position: fixed; inset: 0; z-index: 120; opacity: 0; pointer-events: none; transition: opacity var(--t-med) var(--ease); }
+.tut-root.show { opacity: 1; pointer-events: auto; }
+.tut-mask { position: absolute; inset: 0; background: rgba(5,5,9,.74); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+/* Anillo que rodea el botón del que habla el paso. */
+.tut-ring {
+  position: absolute; border-radius: 15px; pointer-events: none;
+  border: 2.5px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(5,5,9,.72), 0 0 22px rgba(139,92,246,.85);
+  transition: all var(--t-slow) var(--spring);
+}
+.tut-card {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: min(360px, calc(100vw - 32px));
+  background: linear-gradient(180deg, #1e1e2b, var(--bg-2));
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  padding: 18px 18px 16px; box-shadow: var(--sh-3);
+  transition: top var(--t-slow) var(--spring);
+}
+.tut-step { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 6px; }
+.tut-card h4 { margin: 0 0 7px; font-size: 17px; font-weight: 750; letter-spacing: -.2px; }
+.tut-card p { margin: 0 0 15px; font-size: 14px; line-height: 1.5; color: var(--text-dim); }
+.tut-actions { display: flex; gap: 10px; }
+.tut-actions .ghost-btn { flex: 0 0 auto; }
+.tut-actions .primary-btn { flex: 1; }
+body.tut-open { overflow: hidden; }
+
+/* ==================================================================
+   FUNCIONES PRO
+   ================================================================== */
+.badge-pro {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: linear-gradient(120deg, #f5b942, #f07a2b);
+  color: #2a1a05; font-size: 9px; font-weight: 800;
+  padding: 2.5px 7px; border-radius: var(--r-pill);
+  margin-left: 6px; vertical-align: middle; letter-spacing: .4px;
+  box-shadow: 0 2px 8px rgba(245,185,66,.3);
+}
+/* Elementos bloqueados: se ven, se entienden, pero piden desbloquear. */
+.pro-locked { position: relative; }
+.pro-locked::after {
+  content: '★'; position: absolute; top: -5px; right: -3px;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: linear-gradient(120deg, #f5b942, #f07a2b); color: #2a1a05;
+  font-size: 10px; font-weight: 800; line-height: 17px; text-align: center;
+  box-shadow: 0 2px 7px rgba(0,0,0,.5); z-index: 3;
+}
+.tool.pro-locked::after { top: 2px; right: 8px; }
+
+/* Tarjeta de invitación a PRO */
+.pro-card {
+  background: linear-gradient(135deg, rgba(245,185,66,.14), rgba(240,122,43,.09));
+  border: 1px solid rgba(245,185,66,.35); border-radius: var(--r-md);
+  padding: 16px; margin-bottom: 16px;
+}
+.pro-card h4 { margin: 0 0 6px; font-size: 16px; font-weight: 750; display: flex; align-items: center; gap: 8px; }
+.pro-card h4 .ic { width: 19px; height: 19px; color: #f5b942; }
+.pro-card p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+.pro-list { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 7px; }
+.pro-list li { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 9px; }
+.pro-list li::before { content: '✓'; color: #f5b942; font-weight: 800; }
+.pro-input {
+  width: 100%; height: 48px; background: var(--bg-3);
+  border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text);
+  padding: 0 14px; font-size: 15px; font-weight: 600; letter-spacing: 1px;
+  text-align: center; text-transform: uppercase; margin-bottom: 10px;
+}
+.pro-input::placeholder { letter-spacing: .3px; font-weight: 400; text-transform: none; color: var(--text-faint); }
+.pro-active {
+  display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650;
+  color: #f5b942; background: rgba(245,185,66,.1);
+  border: 1px solid rgba(245,185,66,.3); border-radius: var(--r-sm); padding: 13px 15px;
+}
+.pro-active .ic { width: 20px; height: 20px; }
+
+/* El oscurecido lo hace la sombra gigante del anillo, así el botón señalado
+   queda perfectamente visible. La máscara solo recoge los toques. */
+.tut-mask { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ==================================================================
+   ESCRITORIO — distribución de estudio (vista + panel + línea de tiempo)
+   ================================================================== */
+@media (min-width: 1024px) and (pointer: fine) {
+  #screen-editor {
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "topbar    topbar"
+      "save      save"
+      "preview   tools"
+      "transport tools"
+      "timeline  timeline";
+  }
+  /* Sin min-height:0 un elemento de rejilla no puede encogerse y la vista
+     previa se desbordaba por debajo, encima de la línea de tiempo. */
+  .preview-wrap {
+    grid-area: preview; min-height: 0; height: auto !important;
+    overflow: hidden; padding: 18px; background: #060609;
+  }
+  #preview { max-width: 100%; max-height: 100%; border-radius: 10px; box-shadow: var(--sh-3); }
+  .transport {
+    grid-area: transport; align-self: stretch; position: static;
+    background: var(--bg-2); border-top: 1px solid var(--line-soft);
+    padding: 10px 18px;
+  }
+  .timeline-area { grid-area: timeline; min-height: 210px; max-height: 34vh; }
+  .timeline-scroll { max-height: 32vh; overflow-y: auto; }
+  /* Panel lateral de herramientas */
+  .toolbar, .clip-tools {
+    grid-area: tools; padding: 16px 14px; gap: 5px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg));
+    border-left: 1px solid var(--line-soft);
+  }
+  .toolbar .tool, .clip-tools .tool {
+    min-height: 48px; border-radius: var(--r-sm);
+  }
+  .toolbar .tool span, .clip-tools .tool span { font-size: 13.5px; color: var(--text); font-weight: 600; }
+  .toolbar .tool:hover, .clip-tools .tool:hover { background: var(--bg-3); }
+  .tool i { width: 38px; height: 38px; }
+  .tool i .ic { width: 19px; height: 19px; }
+  /* Las hojas se muestran centradas como diálogo */
+  .sheet { left: 50%; transform: translate(-50%, 105%); width: 620px; max-width: 92vw; }
+  .sheet.show { transform: translate(-50%, 0); }
+  .sheet-inner { max-height: 78vh; }
+  .sheet-inner .opt-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Marcadores de la regla ahora son formas, no emoji: les damos color propio. */
+.ruler-marker { font-size: 12px; font-weight: 800; color: var(--accent-2); top: 0; }
+.ruler-marker:active { transform: translateX(-50%) scale(1.3); }
+
+/* En pantallas estrechas el nombre del proyecto se quedaba sin sitio:
+   el formato ya está en la barra de herramientas como «Formato». */
+@media (max-width: 460px) {
+  #btn-ratio { display: none; }
+  .project-name-input { font-size: 14px; }
+}

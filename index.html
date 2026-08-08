@@ -15,6 +15,50 @@
   <title>PlayCUT — Editor de video en tu dispositivo</title>
 </head>
 <body>
+<svg id="ic-sprite" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="ic-media" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18M7 5v4M12 5v4M17 5v4"/></symbol>
+    <symbol id="ic-overlay" viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="11" rx="2"/><rect x="9" y="10" width="12" height="10" rx="2"/></symbol>
+    <symbol id="ic-text" viewBox="0 0 24 24"><path d="M5 6V5h14v1M12 5v14M9 19h6"/></symbol>
+    <symbol id="ic-sticker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 10.5v.01M15 10.5v.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></symbol>
+    <symbol id="ic-gif" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M11 9.5A2.5 2.5 0 1 0 11 15M13.5 15V9.5h2.5M13.5 12.5h2M19 9.5V15"/></symbol>
+    <symbol id="ic-audio" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/></symbol>
+    <symbol id="ic-voice" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></symbol>
+    <symbol id="ic-ratio" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6v12"/></symbol>
+    <symbol id="ic-split" viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></symbol>
+    <symbol id="ic-freeze" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M12 7l-2.4-2.4M12 7l2.4-2.4M12 17l-2.4 2.4M12 17l2.4 2.4"/></symbol>
+    <symbol id="ic-color" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.3 0 2-.8 2-1.7 0-1.4-1.3-1.6-1.3-2.8 0-.9.7-1.5 1.7-1.5H16a5 5 0 0 0 5-5c0-4-4-7-9-7Z"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.6" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-marker" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+    <symbol id="ic-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9.5 4V3h5v1"/><path d="M9 11h6M9 15h4"/></symbol>
+    <symbol id="ic-adjust" viewBox="0 0 24 24"><path d="M5 21v-7M5 10V3M12 21v-11M12 6V3M19 21v-4M19 13V3"/><path d="M2.5 14h5M9.5 6h5M16.5 17h5"/></symbol>
+    <symbol id="ic-volume" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.7 6.2a8 8 0 0 1 0 11.6"/></symbol>
+    <symbol id="ic-speed" viewBox="0 0 24 24"><path d="M12 21a8.5 8.5 0 1 0-8.5-8.5"/><path d="M3.5 12.5 6 10M12 12.5l4.5-4"/><circle cx="12" cy="12.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-transition" viewBox="0 0 24 24"><rect x="2.5" y="6" width="9" height="12" rx="2"/><rect x="12.5" y="6" width="9" height="12" rx="2"/><path d="M9 12h6M13 10l2 2-2 2"/></symbol>
+    <symbol id="ic-anim" viewBox="0 0 24 24"><path d="m12 3 2.1 5.1L19.5 9l-4 3.6 1.1 5.4L12 15.4 7.4 18l1.1-5.4-4-3.6 5.4-.9L12 3Z"/></symbol>
+    <symbol id="ic-duplicate" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="12" height="12" rx="2"/><rect x="8.5" y="8.5" width="12" height="12" rx="2"/></symbol>
+    <symbol id="ic-copy" viewBox="0 0 24 24"><rect x="9" y="3" width="12" height="14" rx="2"/><path d="M15 21H5a2 2 0 0 1-2-2V8"/></symbol>
+    <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="ic-unlock" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 7.7-1.5"/></symbol>
+    <symbol id="ic-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
+    <symbol id="ic-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+    <symbol id="ic-back" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
+    <symbol id="ic-undo" viewBox="0 0 24 24"><path d="M4 8h9.5a5.5 5.5 0 0 1 0 11H8"/><path d="m7.5 4.5-3 3.5 3 3.5"/></symbol>
+    <symbol id="ic-redo" viewBox="0 0 24 24"><path d="M20 8h-9.5a5.5 5.5 0 0 0 0 11H16"/><path d="m16.5 4.5 3 3.5-3 3.5"/></symbol>
+    <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 14.4a1.6 1.6 0 0 0 .33 1.79l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.79-.33 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.11a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.79.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .33-1.79 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.11a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.33-1.79l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.79.33H9a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.11a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.79-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.33 1.79V9a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.11a1.6 1.6 0 0 0-1.47 1Z"/></symbol>
+    <symbol id="ic-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5-13-7.5Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-pause" viewBox="0 0 24 24"><rect x="6.5" y="4.5" width="4" height="15" rx="1.4" fill="currentColor" stroke="none"/><rect x="13.5" y="4.5" width="4" height="15" rx="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-export" viewBox="0 0 24 24"><path d="M12 16V3M8 7l4-4 4 4"/><path d="M4 15v3.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V15"/></symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="ic-crown" viewBox="0 0 24 24"><path d="m3 8 3.6 2.7L12 4l5.4 6.7L21 8l-1.6 10H4.6L3 8Z"/></symbol>
+    <symbol id="ic-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.4"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-safe" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" stroke-dasharray="2.5 2.5"/></symbol>
+    <symbol id="ic-camera" viewBox="0 0 24 24"><path d="M4 8.5h2.6l1.6-2.4h7.6L17.4 8.5H20a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z"/><circle cx="12" cy="13.5" r="3.3"/></symbol>
+    <symbol id="ic-beat" viewBox="0 0 24 24"><path d="M2.5 12h3.2l2-6 3 12 2.6-8.5 1.9 4.5h6.3"/></symbol>
+    <symbol id="ic-zoom-in" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.8v5.4M7.8 10.5h5.4"/></symbol>
+    <symbol id="ic-zoom-out" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M7.8 10.5h5.4"/></symbol>
+    <symbol id="ic-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+</svg>
+
   <!-- ===================== PANTALLA: PROYECTOS ===================== -->
   <section id="screen-home" class="screen active">
     <header class="home-header">
@@ -48,14 +92,14 @@
   <!-- ===================== PANTALLA: EDITOR ===================== -->
   <section id="screen-editor" class="screen">
     <header class="editor-topbar">
-      <button id="btn-back" class="icon-btn" title="Volver">‹</button>
-      <button id="btn-undo" class="icon-btn mini" title="Deshacer" disabled>↶</button>
-      <button id="btn-redo" class="icon-btn mini" title="Rehacer" disabled>↷</button>
+      <button id="btn-back" class="icon-btn" title="Volver"><svg class="ic" aria-hidden="true"><use href="#ic-back"/></svg></button>
+      <button id="btn-undo" class="icon-btn mini" title="Deshacer" disabled><svg class="ic" aria-hidden="true"><use href="#ic-undo"/></svg></button>
+      <button id="btn-redo" class="icon-btn mini" title="Rehacer" disabled><svg class="ic" aria-hidden="true"><use href="#ic-redo"/></svg></button>
       <input id="project-name" class="project-name-input" value="Proyecto" />
       <div class="topbar-actions">
-        <button id="btn-ratio" class="icon-btn mini" title="Formato">▭</button>
-        <button id="btn-settings" class="icon-btn mini" title="Ajustes">⚙</button>
-        <button id="btn-export" class="primary-btn small">Exportar</button>
+        <button id="btn-ratio" class="icon-btn mini" title="Formato"><svg class="ic" aria-hidden="true"><use href="#ic-ratio"/></svg></button>
+        <button id="btn-settings" class="icon-btn mini" title="Ajustes"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+        <button id="btn-export" class="primary-btn small"><svg class="ic" aria-hidden="true"><use href="#ic-export"/></svg><span>Exportar</span></button>
       </div>
     </header>
     <div class="save-row"><span id="save-status" class="save-status">Guardado</span></div>
@@ -71,7 +115,7 @@
     </div>
 
     <div class="transport">
-      <button id="btn-play" class="icon-btn play" title="Reproducir">▶</button>
+      <button id="btn-play" class="icon-btn play" title="Reproducir"><svg class="ic" aria-hidden="true"><use href="#ic-play"/></svg></button>
       <span id="time-current" class="time">0:00.0</span>
       <input id="seek" class="seek" type="range" min="0" max="1000" value="0" />
       <span id="time-total" class="time">0:00.0</span>
@@ -79,8 +123,8 @@
 
     <div class="timeline-area" id="timeline-area">
       <div class="zoom-controls">
-        <button id="btn-zoom-out" class="zoom-btn" title="Alejar">－</button>
-        <button id="btn-zoom-in" class="zoom-btn" title="Acercar">＋</button>
+        <button id="btn-zoom-out" class="zoom-btn" title="Alejar"><svg class="ic" aria-hidden="true"><use href="#ic-zoom-out"/></svg></button>
+        <button id="btn-zoom-in" class="zoom-btn" title="Acercar"><svg class="ic" aria-hidden="true"><use href="#ic-zoom-in"/></svg></button>
       </div>
       <div class="timeline-scroll" id="timeline-scroll">
         <div class="timeline" id="timeline">
@@ -96,35 +140,38 @@
 
     <!-- Barra de herramientas principal -->
     <nav class="toolbar" id="toolbar-main">
-      <button class="tool" data-action="add-media"><i>🎬</i><span>Añadir</span></button>
-      <button class="tool" data-action="add-overlay"><i>🖼️</i><span>Superponer</span></button>
-      <button class="tool" data-action="add-text"><i>🅣</i><span>Texto</span></button>
-      <button class="tool" data-action="add-sticker"><i>😀</i><span>Sticker</span></button>
-      <button class="tool" data-action="add-gif"><i>🎞️</i><span>GIF</span></button>
-      <button class="tool" data-action="add-audio"><i>🎵</i><span>Audio</span></button>
-      <button class="tool" data-action="voice"><i>🎙️</i><span>Voz</span></button>
-      <button class="tool" data-action="ratio"><i>▭</i><span>Formato</span></button>
-      <button class="tool" data-action="split"><i>✂️</i><span>Dividir</span></button>
-      <button class="tool" data-action="freeze"><i>🧊</i><span>Congelar</span></button>
-      <button class="tool" data-action="add-color"><i>🎨</i><span>Color</span></button>
-      <button class="tool" data-action="marker"><i>📍</i><span>Marcador</span></button>
-      <button class="tool" data-action="paste" id="btn-paste" hidden><i>📥</i><span>Pegar</span></button>
+      <button class="tool" data-action="add-media"><i><svg class="ic" aria-hidden="true"><use href="#ic-media"/></svg></i><span>Añadir</span></button>
+      <button class="tool" data-action="add-overlay"><i><svg class="ic" aria-hidden="true"><use href="#ic-overlay"/></svg></i><span>Superponer</span></button>
+      <button class="tool" data-action="add-text"><i><svg class="ic" aria-hidden="true"><use href="#ic-text"/></svg></i><span>Texto</span></button>
+      <button class="tool" data-action="add-sticker"><i><svg class="ic" aria-hidden="true"><use href="#ic-sticker"/></svg></i><span>Sticker</span></button>
+      <button class="tool" data-action="add-gif"><i><svg class="ic" aria-hidden="true"><use href="#ic-gif"/></svg></i><span>GIF</span></button>
+      <button class="tool" data-action="add-audio"><i><svg class="ic" aria-hidden="true"><use href="#ic-audio"/></svg></i><span>Audio</span></button>
+      <button class="tool" data-action="voice"><i><svg class="ic" aria-hidden="true"><use href="#ic-voice"/></svg></i><span>Voz</span></button>
+      <button class="tool" data-action="ratio"><i><svg class="ic" aria-hidden="true"><use href="#ic-ratio"/></svg></i><span>Formato</span></button>
+      <button class="tool" data-action="split"><i><svg class="ic" aria-hidden="true"><use href="#ic-split"/></svg></i><span>Dividir</span></button>
+      <button class="tool" data-action="freeze"><i><svg class="ic" aria-hidden="true"><use href="#ic-freeze"/></svg></i><span>Congelar</span></button>
+      <button class="tool" data-action="add-color"><i><svg class="ic" aria-hidden="true"><use href="#ic-color"/></svg></i><span>Color</span></button>
+      <button class="tool" data-action="marker"><i><svg class="ic" aria-hidden="true"><use href="#ic-marker"/></svg></i><span>Marcador</span></button>
+      <button class="tool" data-action="beat" data-pro="beat"><i><svg class="ic" aria-hidden="true"><use href="#ic-beat"/></svg></i><span>Al ritmo</span></button>
+      <button class="tool" data-action="safe" data-pro="safe"><i><svg class="ic" aria-hidden="true"><use href="#ic-safe"/></svg></i><span>Guías</span></button>
+      <button class="tool" data-action="grab-frame" data-pro="frame"><i><svg class="ic" aria-hidden="true"><use href="#ic-camera"/></svg></i><span>Foto</span></button>
+      <button class="tool" data-action="paste" id="btn-paste" hidden><i><svg class="ic" aria-hidden="true"><use href="#ic-paste"/></svg></i><span>Pegar</span></button>
     </nav>
 
     <!-- Panel contextual de clip seleccionado -->
     <div class="clip-tools" id="clip-tools" hidden>
-      <button class="tool" data-action="clip-adjust"><i>🎛️</i><span>Editar</span></button>
-      <button class="tool" data-action="clip-audio"><i>🔊</i><span>Volumen</span></button>
-      <button class="tool" data-action="clip-speed"><i>⏱️</i><span>Velocidad</span></button>
-      <button class="tool" data-action="clip-transition"><i>⇋</i><span>Transición</span></button>
-      <button class="tool" data-action="clip-anim"><i>✨</i><span>Animar</span></button>
-      <button class="tool" data-action="clip-split"><i>✂️</i><span>Dividir</span></button>
-      <button class="tool" data-action="clip-duplicate"><i>⧉</i><span>Duplicar</span></button>
-      <button class="tool" data-action="clip-copy"><i>📋</i><span>Copiar</span></button>
-      <button class="tool" data-action="clip-lock"><i>🔒</i><span>Bloquear</span></button>
-      <button class="tool" data-action="clip-left"><i>◀</i><span>Mover</span></button>
-      <button class="tool" data-action="clip-right"><i>▶</i><span>Mover</span></button>
-      <button class="tool danger" data-action="clip-delete"><i>🗑️</i><span>Borrar</span></button>
+      <button class="tool" data-action="clip-adjust"><i><svg class="ic" aria-hidden="true"><use href="#ic-adjust"/></svg></i><span>Editar</span></button>
+      <button class="tool" data-action="clip-audio"><i><svg class="ic" aria-hidden="true"><use href="#ic-volume"/></svg></i><span>Volumen</span></button>
+      <button class="tool" data-action="clip-speed"><i><svg class="ic" aria-hidden="true"><use href="#ic-speed"/></svg></i><span>Velocidad</span></button>
+      <button class="tool" data-action="clip-transition"><i><svg class="ic" aria-hidden="true"><use href="#ic-transition"/></svg></i><span>Transición</span></button>
+      <button class="tool" data-action="clip-anim"><i><svg class="ic" aria-hidden="true"><use href="#ic-anim"/></svg></i><span>Animar</span></button>
+      <button class="tool" data-action="clip-split"><i><svg class="ic" aria-hidden="true"><use href="#ic-split"/></svg></i><span>Dividir</span></button>
+      <button class="tool" data-action="clip-duplicate"><i><svg class="ic" aria-hidden="true"><use href="#ic-duplicate"/></svg></i><span>Duplicar</span></button>
+      <button class="tool" data-action="clip-copy"><i><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg></i><span>Copiar</span></button>
+      <button class="tool" data-action="clip-lock"><i><svg class="ic" aria-hidden="true"><use href="#ic-lock"/></svg></i><span>Bloquear</span></button>
+      <button class="tool" data-action="clip-left"><i><svg class="ic" aria-hidden="true"><use href="#ic-left"/></svg></i><span>Mover</span></button>
+      <button class="tool" data-action="clip-right"><i><svg class="ic" aria-hidden="true"><use href="#ic-right"/></svg></i><span>Mover</span></button>
+      <button class="tool danger" data-action="clip-delete"><i><svg class="ic" aria-hidden="true"><use href="#ic-trash"/></svg></i><span>Borrar</span></button>
     </div>
 
     <input id="file-media" type="file" accept="video/*,image/*" multiple hidden />
@@ -166,7 +213,7 @@
         </div>
 
         <p class="sheet-sub only-overlay">Modo de mezcla <span class="badge-pro">PRO</span></p>
-        <div class="opt-chips only-overlay" id="blend-row">
+        <div class="opt-chips only-overlay" id="blend-row" data-pro="blend">
           <button class="chip" data-blend="normal">Normal</button>
           <button class="chip" data-blend="screen">Aclarar</button>
           <button class="chip" data-blend="add">Luz (add)</button>
@@ -279,7 +326,7 @@
         </div>
 
         <p class="sheet-sub">Máscara de forma <span class="badge-pro">PRO</span></p>
-        <div class="opt-chips" id="mask-row">
+        <div class="opt-chips" id="mask-row" data-pro="mask">
           <button class="chip" data-mask="none">Ninguna</button>
           <button class="chip" data-mask="circle">● Círculo</button>
           <button class="chip" data-mask="oval">Óvalo</button>
@@ -294,13 +341,13 @@
 
         <p class="sheet-sub">Animación con keyframes <span class="badge-pro">PRO</span></p>
         <div class="opt-grid two">
-          <button class="opt" id="kf-add"><span class="opt-ico">◆</span><span id="kf-add-label">Añadir keyframe</span></button>
+          <button class="opt" id="kf-add" data-pro="keyframes"><span class="opt-ico">◆</span><span id="kf-add-label">Añadir keyframe</span></button>
           <button class="opt" id="kf-clear"><span class="opt-ico">🗑️</span>Borrar animación</button>
         </div>
         <p class="export-meta" id="kf-hint">Coloca el cursor, mueve/escala el clip (con 2 dedos) y añade un keyframe. Repite en otro momento y se animará solo.</p>
 
         <p class="sheet-sub">Pantalla verde (chroma) <span class="badge-pro">PRO</span></p>
-        <div class="opt-chips" id="chroma-row">
+        <div class="opt-chips" id="chroma-row" data-pro="chroma">
           <button class="chip" data-chroma="off">Off</button>
           <button class="chip" data-chroma="#00e000">Verde</button>
           <button class="chip" data-chroma="#0047ff">Azul</button>
@@ -614,6 +661,11 @@
     <div class="sheet-inner">
       <div class="sheet-handle"></div>
       <h3>Ajustes</h3>
+      <p class="sheet-sub">Ayuda y versión</p>
+      <div class="opt-grid two">
+        <button class="opt" id="btn-tutorial"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-help"/></svg></span>Guía para principiantes</button>
+        <button class="opt" id="btn-pro"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-crown"/></svg></span>PlayCUT PRO</button>
+      </div>
       <p class="sheet-sub">Rendimiento <span class="badge-pro">AUTO</span></p>
       <p class="export-meta" id="device-info">—</p>
       <div class="opt-grid" id="perf-grid">
@@ -656,7 +708,7 @@
           <button class="opt" data-res="720">720p</button>
           <button class="opt" data-res="1080">1080p</button>
           <button class="opt" data-res="1440">2K</button>
-          <button class="opt" data-res="2160">4K <span class="badge-pro">PRO</span></button>
+          <button class="opt" data-res="2160" data-pro="4k">4K <span class="badge-pro">PRO</span></button>
         </div>
         <p class="sheet-sub">Fotogramas por segundo</p>
         <div class="opt-grid" id="export-fps">
@@ -688,6 +740,38 @@
   <div id="sheet-backdrop" class="sheet-backdrop"></div>
 
   <!-- Superposición de trabajo en curso (importar, convertir, congelar…) -->
+  <!-- ===================== HOJA: PLAYCUT PRO ===================== -->
+  <div id="sheet-pro" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>PlayCUT PRO</h3>
+      <div id="pro-locked-view">
+        <div class="pro-card">
+          <h4><svg class="ic" aria-hidden="true"><use href="#ic-crown"/></svg> Desbloquea todo</h4>
+          <p>Las funciones PRO están marcadas con una estrella dorada. Con un código las activas en este dispositivo para siempre.</p>
+          <ul class="pro-list">
+            <li>Exportar en 4K</li>
+            <li>Animación con keyframes</li>
+            <li>Pantalla verde (chroma)</li>
+            <li>Máscaras de forma y mezclas</li>
+            <li>Corrección de color avanzada</li>
+            <li>Marcadores al ritmo de la música</li>
+            <li>Guías de encuadre y foto del fotograma</li>
+          </ul>
+          <input id="pro-code" class="pro-input" placeholder="Escribe tu código" autocomplete="off" spellcheck="false" />
+          <button class="primary-btn full" id="pro-redeem">Activar PRO</button>
+        </div>
+        <p class="export-meta">¿No tienes código? Puedes seguir usando todo lo demás sin límite: la app es tuya y funciona sin internet.</p>
+      </div>
+      <div id="pro-active-view" hidden>
+        <div class="pro-active"><svg class="ic" aria-hidden="true"><use href="#ic-crown"/></svg> PRO activo en este dispositivo</div>
+        <p class="export-meta" id="pro-code-shown"></p>
+        <button class="ghost-btn full" id="pro-revoke">Quitar PRO de este dispositivo</button>
+      </div>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
   <div id="busy" class="busy-overlay" aria-live="polite">
     <div class="busy-spinner"></div>
     <p class="busy-text" id="busy-text">Procesando…</p>

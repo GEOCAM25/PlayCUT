@@ -209,6 +209,10 @@ export class Engine {
       }
     }
 
+    // Guías de encuadre seguro: marcan la zona que tapan los botones de
+    // TikTok/Reels/Shorts. Solo ayuda visual — nunca se exporta.
+    if (this.showSafeZones && !this._exporting) this._drawSafeZones();
+
     // Durante la exportación, fuerza la captura de este fotograma.
     if (this._captureTrack && this._captureTrack.requestFrame) {
       try { this._captureTrack.requestFrame(); } catch {}
@@ -244,6 +248,28 @@ export class Engine {
       if (vs.b) this.drawTransition(vs); else this.drawClip(vs.a, vs.localA, {});
     } finally { this.canvas = savedCanvas; this.ctx = savedCtx; }
     return await new Promise((res) => off.toBlob(res, 'image/png'));
+  }
+
+  // Zonas seguras para redes verticales: arriba el nombre/estado, abajo la
+  // descripción y a la derecha la botonera. Lo de dentro del rectángulo
+  // punteado se ve siempre sin que lo tape la interfaz de la red social.
+  _drawSafeZones() {
+    const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+    const top = H * 0.08, bottom = H * 0.20, right = W * 0.16, left = W * 0.04;
+    ctx.save();
+    ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    // Sombreado de las zonas que quedan tapadas.
+    ctx.fillStyle = 'rgba(255,60,90,.16)';
+    ctx.fillRect(0, 0, W, top);
+    ctx.fillRect(0, H - bottom, W, bottom);
+    ctx.fillRect(W - right, top, right, H - top - bottom);
+    ctx.fillRect(0, top, left, H - top - bottom);
+    // Marco de la zona segura.
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = Math.max(2, W * 0.004);
+    ctx.setLineDash([W * 0.02, W * 0.02]);
+    ctx.strokeRect(left, top, W - left - right, H - top - bottom);
+    ctx.restore();
   }
 
   // Grano de película: superpone ruido (tejado en mosaico) desplazado cada

@@ -85,10 +85,10 @@ export class Timeline {
       const el = this._buildClip(clip, 'video', start, clipDuration(clip));
       this._addThumb(el, clip.mediaId);
       el.classList.add(clip.type === 'image' ? 'type-image' : 'type-video');
-      let tag = clip.type === 'image' ? '🖼️' : '🎬';
+      let tag = clip.type === 'image' ? 'Foto' : 'Video';
       if ((clip.speed || 1) !== 1) tag += ` ${(clip.speed).toFixed(clip.speed % 1 ? 1 : 0)}×`;
       if (clip.motion && clip.motion !== 'none') tag += ' ✦';
-      if (clip.muted) tag += ' 🔇';
+      if (clip.muted) tag += ' · sin sonido';
       this._addLabel(el, tag);
       this._addTrimHandles(el, clip, 'video');
       this._makeReorderable(el, clip);
@@ -110,12 +110,12 @@ export class Timeline {
     const track = this.trackEls.overlay;
     track.innerHTML = '';
     const clips = this.project.tracks.overlay || [];
-    if (clips.length === 0) { track.appendChild(this._hint('🖼️ Video/foto encima (superponer)')); return; }
+    if (clips.length === 0) { track.appendChild(this._hint('Superposición (video o foto encima)')); return; }
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'overlay', clip.start, overlayDuration(clip));
       this._addThumb(el, clip.mediaId);
       el.classList.add('type-overlay');
-      this._addLabel(el, (clip.type === 'image' ? '🖼️ Encima' : '🎬 Encima') + (clip.muted ? ' 🔇' : ''));
+      this._addLabel(el, 'Encima' + (clip.muted ? ' · sin sonido' : ''));
       this._addTrimHandles(el, clip, 'overlay');
       this._makeMovable(el, clip, 'overlay');
       track.appendChild(el);
@@ -126,13 +126,13 @@ export class Timeline {
     const track = this.trackEls.audio;
     track.innerHTML = '';
     const clips = this.project.tracks.audio;
-    if (clips.length === 0) { track.appendChild(this._hint('🎵 Música / audio')); return; }
+    if (clips.length === 0) { track.appendChild(this._hint('Música y audio')); return; }
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'audio', clip.start, clip.outPoint - clip.inPoint);
       el.classList.add('type-audio');
       const peaks = this._mediaPeaks(clip.mediaId);
       if (peaks) this._drawWave(el, clip, peaks);
-      this._addLabel(el, (clip.muted ? '🔇 ' : '🎵 ') + (this._mediaName(clip.mediaId) || 'Audio'));
+      this._addLabel(el, (this._mediaName(clip.mediaId) || 'Audio') + (clip.muted ? ' · sin sonido' : ''));
       this._addTrimHandles(el, clip, 'audio');
       this._makeMovable(el, clip, 'audio');
       track.appendChild(el);
@@ -143,7 +143,7 @@ export class Timeline {
     const track = this.trackEls.text;
     track.innerHTML = '';
     const clips = this.project.tracks.text;
-    if (clips.length === 0) { track.appendChild(this._hint('🅣 Texto / stickers')); return; }
+    if (clips.length === 0) { track.appendChild(this._hint('Texto y stickers')); return; }
     clips.forEach((clip) => {
       const el = this._buildClip(clip, 'text', clip.start, clip.end - clip.start);
       el.classList.add('type-text');
@@ -179,7 +179,7 @@ export class Timeline {
       const pin = document.createElement('button');
       pin.className = 'ruler-marker';
       pin.style.left = (mk.t * this.pps) + 'px';
-      pin.textContent = '📍';
+      pin.textContent = mk.beat ? '♪' : '▾';
       pin.title = 'Marcador · toca para saltar';
       pin.addEventListener('click', (e) => { e.stopPropagation(); this.onScrub && this.onScrub(mk.t); this.setPlayhead(mk.t); });
       ruler.appendChild(pin);

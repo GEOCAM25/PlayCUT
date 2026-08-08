@@ -63,20 +63,52 @@ function toast(msg) {
 }
 // Vibración háptica (donde el dispositivo lo permita).
 function haptic(pattern) { try { navigator.vibrate && navigator.vibrate(pattern); } catch {} }
+
+// Superposición de "trabajando…" para tareas que tardan (importar, convertir).
+function busy(text, sub) {
+  const el = $('#busy'); if (!el) return;
+  $('#busy-text').textContent = text || 'Procesando…';
+  $('#busy-sub').textContent = sub || '';
+  el.classList.add('show');
+}
+function busyUpdate(sub) { const s = $('#busy-sub'); if (s) s.textContent = sub || ''; }
+function busyDone() { const el = $('#busy'); if (el) el.classList.remove('show'); }
 function showScreen(name) { for (const k in screens) screens[k].classList.toggle('active', k === name); }
 function setActive(container, attr, value) {
   $$(`${container} [data-${attr}]`).forEach(b => b.classList.toggle('active', b.dataset[attr] === String(value)));
 }
 
+let lastThumbAt = 0;
 function scheduleSave() {
   if (!project) return;
-  els.saveStatus.textContent = 'Guardando…';
+  setSaveState('saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    project.thumb = engine.snapshot() || project.thumb;
-    await db.saveProject(project);
-    els.saveStatus.textContent = 'Guardado en el dispositivo ✓';
-  }, 600);
+    // La miniatura solo se refresca de vez en cuando y nunca reproduciendo:
+    // codificarla en cada guardado añadía trabajo al hilo principal.
+    const now = Date.now();
+    // Si el proyecto aún no tiene miniatura se genera ya; después basta con
+    // refrescarla de vez en cuando (y nunca durante la reproducción).
+    if (!project.thumb || (!engine.playing && now - lastThumbAt > 4000)) {
+      lastThumbAt = now;
+      project.thumb = engine.snapshot() || project.thumb;
+    }
+    project.updatedAt = now;
+    try {
+      await db.saveProject(project);
+      setSaveState('saved');
+    } catch (e) {
+      console.error(e);
+      setSaveState('error');
+    }
+  }, 700);
+}
+function setSaveState(state) {
+  const el = els.saveStatus;
+  el.dataset.state = state;
+  el.textContent = state === 'saving' ? 'Guardando…'
+    : state === 'error' ? '⚠ No se pudo guardar (¿sin espacio?)'
+    : 'Guardado en este dispositivo ✓';
 }
 
 function refresh() {
@@ -249,6 +281,7 @@ async function openProject(id) {
   els.projectName.value = project.name;
   updateDurationUI(); updateEmptyState();
   engine.seek(0); timeline.setPlayhead(0);
+  lastThumbAt = 0; // cada proyecto genera su propia miniatura al primer guardado
   resetHistory();
   showScreen('editor');
   fitPreview();
@@ -270,10 +303,12 @@ function togglePlay() {
 async function handleMediaFiles(files) {
   if (!files.length) return;
   pushHistory();
+  engine.pause(); setPlayIcon(false);
+  busy(files.length > 1 ? `Importando ${files.length} archivos…` : 'Importando…', 'Todo se queda en tu dispositivo');
   let added = 0, lastVideo = null;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    toast(files.length > 1 ? `Importando ${i + 1} de ${files.length}…` : 'Importando…');
+    if (files.length > 1) busyUpdate(`${i + 1} de ${files.length} · ${file.name || ''}`);
     try {
       const rec = await importFile(file);
       if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
@@ -293,6 +328,7 @@ async function handleMediaFiles(files) {
       toast(quota ? 'No hay espacio en el dispositivo para ese archivo' : ('No se pudo importar ' + (file.name || 'el archivo')));
     }
   }
+  busyDone();
   refresh();
   void lastVideo;
   pushHistory();
@@ -302,7 +338,7 @@ async function handleMediaFiles(files) {
 async function handleOverlayFiles(files) {
   if (!files.length) return;
   pushHistory();
-  toast('Importando superposición…');
+  busy('Importando superposición…');
   let last = null;
   for (const file of files) {
     try {
@@ -314,6 +350,7 @@ async function handleOverlayFiles(files) {
       project.tracks.overlay.push(clip); last = clip;
     } catch (e) { console.error(e); toast('No se pudo importar ' + file.name); }
   }
+  busyDone();
   refresh(); pushHistory();
   if (last) { timeline.select(last.id, 'overlay'); toast('Superposición añadida — muévela y ajústala'); }
 }
@@ -322,21 +359,27 @@ async function handleOverlayFiles(files) {
 async function handleAudioFiles(files) {
   if (!files.length) return;
   pushHistory();
+  engine.pause(); setPlayIcon(false);
+  busy('Añadiendo audio…');
   for (const file of files) {
     try {
       let audioFile = file;
       if (file.type.startsWith('video')) {
-        toast('Extrayendo audio y convirtiendo a MP3…');
-        const mp3 = await mediaToMp3(file, () => {});
+        busy('Extrayendo el audio del video…', 'Convirtiendo a MP3 en tu dispositivo');
+        const mp3 = await mediaToMp3(file, (p) => {
+          if (typeof p === 'number' && isFinite(p)) busyUpdate(`Convirtiendo a MP3 · ${Math.round(p * 100)}%`);
+        });
         const base = (file.name.replace(/\.[^.]+$/, '') || 'audio');
         audioFile = new File([mp3], base + '.mp3', { type: 'audio/mpeg' });
       }
+      busy('Añadiendo audio…');
       const rec = await importFile(audioFile);
       mediaNames.set(rec.id, rec.name);
       project.tracks.audio.push(createAudioClip({ mediaId: rec.id, duration: rec.duration || 5, start: engine.playhead, name: rec.name }));
       ensurePeaks(rec.id);
     } catch (e) { console.error(e); toast('No se pudo procesar el audio: ' + (e.message || '')); }
   }
+  busyDone();
   refresh(); pushHistory(); toast('¡Audio añadido!');
 }
 
@@ -566,9 +609,9 @@ async function freezeFrame() {
   const at = videoClipAt(clips, engine.playhead);
   if (!at) { toast('Coloca el cursor sobre un video o foto para congelar'); return; }
   try {
-    toast('Congelando fotograma…');
+    busy('Congelando fotograma…');
     const blob = await engine.captureBaseFrame();
-    if (!blob) { toast('No se pudo capturar el fotograma'); return; }
+    if (!blob) { busyDone(); toast('No se pudo capturar el fotograma'); return; }
     const file = new File([blob], 'congelado.png', { type: 'image/png' });
     pushHistory();
     const rec = await importFile(file);
@@ -577,9 +620,10 @@ async function freezeFrame() {
     const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
     clip.imageDuration = 2;
     clips.splice(at.index + 1, 0, clip);
+    busyDone();
     refresh(); pushHistory(); timeline.select(clip.id, 'video');
     haptic(15); toast('🧊 Fotograma congelado (2s) añadido');
-  } catch (e) { console.error(e); toast('No se pudo congelar: ' + (e.message || '')); }
+  } catch (e) { busyDone(); console.error(e); toast('No se pudo congelar: ' + (e.message || '')); }
 }
 
 function moveClip(sel, dir) {
@@ -878,7 +922,8 @@ function bindAdjust() {
     if (adjustTarget.track === 'overlay') setActive('#border-row', 'border', c.borderW > 0 ? (c.borderColor || '#ffffff') : 'off');
     if (c.keyframes && c.keyframes.length) { upsertKeyframe(c, adjustTarget.track); updateKfUI(c); }
     updateAdjustOutputs();
-    engine.applyGains(); engine.render(engine.playhead); timeline.render(); updateDurationUI(); scheduleSave();
+    engine.applyGains(); engine.render(engine.playhead);
+    timeline.requestRender(); updateDurationUI(); scheduleSave();
   };
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
    '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-grain', '#adj-opacity',
@@ -1237,7 +1282,7 @@ function bindText() {
     $('#out-textx').textContent = $('#text-x').value + '%';
     $('#out-textrot').textContent = $('#text-rot').value + '°';
     $('#out-textls').textContent = $('#text-ls').value;
-    engine.render(engine.playhead); timeline.render(); scheduleSave();
+    engine.render(engine.playhead); timeline.requestRender(); scheduleSave();
   };
   ['#text-content', '#text-size', '#text-y', '#text-x', '#text-rot', '#text-ls'].forEach(s => $(s).addEventListener('input', apply));
   const fx = $('#text-effects');

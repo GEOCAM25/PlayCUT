@@ -207,6 +207,17 @@ export function connectElement(clipId, element) {
   return node;
 }
 
+// Desconecta y olvida el nodo de un clip. IMPRESCINDIBLE al destruir su
+// elemento: si no, al recrear el clip (deshacer/rehacer) `connectElement`
+// devolvería el nodo viejo —atado a un elemento muerto— y el clip quedaría mudo.
+export function disconnectClip(clipId) {
+  const node = clipNodes.get(clipId);
+  if (!node) return;
+  try { node.source.disconnect(); } catch {}
+  try { node.gain.disconnect(); } catch {}
+  clipNodes.delete(clipId);
+}
+
 export function setClipGain(clipId, value) {
   const node = clipNodes.get(clipId);
   if (node) node.gain.gain.value = value;

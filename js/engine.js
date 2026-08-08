@@ -5,7 +5,7 @@
 import {
   projectDuration, videoStateAt, clipDuration, clipFilterString, FONTS, overlayDuration,
 } from './state.js';
-import { blobURLFor, connectElement, setClipGain, getAudioContext, loadMediaRecord } from './media.js';
+import { blobURLFor, connectElement, setClipGain, disconnectClip, getAudioContext, loadMediaRecord } from './media.js';
 import { getProfile } from './perf.js';
 
 export class Engine {
@@ -74,8 +74,12 @@ export class Engine {
     for (const id of [...this.elements.keys()]) {
       if (!needed.has(id)) {
         const rec = this.elements.get(id);
-        if (rec && rec.el) { try { rec.el.pause(); rec.el.src = ''; } catch {} }
+        if (rec && rec.el) { try { rec.el.pause(); rec.el.removeAttribute('src'); rec.el.load(); } catch {} }
         if (rec && rec.img && rec.img.parentNode) rec.img.remove();
+        // Libera el nodo de audio: si el clip vuelve (deshacer), se reconecta
+        // al elemento nuevo en vez de quedarse mudo con el nodo antiguo.
+        disconnectClip(id);
+        this._chromaCache.delete(id);
         this.elements.delete(id);
       }
     }
@@ -873,7 +877,23 @@ export class Engine {
     this.render(this.playhead);
   }
 
-  snapshot() { try { return this.previewCanvas.toDataURL('image/jpeg', 0.6); } catch { return null; } }
+  // Miniatura del proyecto: se reduce a un lienzo pequeño antes de codificar.
+  // Codificar la vista previa a tamaño completo en cada guardado bloqueaba el
+  // hilo principal y provocaba tirones al editar.
+  snapshot() {
+    try {
+      const src = this.previewCanvas;
+      if (!src.width || !src.height) return null;
+      const MAX = 240;
+      const k = Math.min(1, MAX / Math.max(src.width, src.height));
+      const c = this._thumbCanvas || (this._thumbCanvas = document.createElement('canvas'));
+      c.width = Math.max(1, Math.round(src.width * k));
+      c.height = Math.max(1, Math.round(src.height * k));
+      const cx = c.getContext('2d');
+      cx.drawImage(src, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.62);
+    } catch { return null; }
+  }
 
   // ==================== EXPORTAR EN ALTA RESOLUCIÓN ====================
   beginExport(w, h) {

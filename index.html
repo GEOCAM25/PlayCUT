@@ -686,6 +686,14 @@
   </div>
 
   <div id="sheet-backdrop" class="sheet-backdrop"></div>
+
+  <!-- Superposición de trabajo en curso (importar, convertir, congelar…) -->
+  <div id="busy" class="busy-overlay" aria-live="polite">
+    <div class="busy-spinner"></div>
+    <p class="busy-text" id="busy-text">Procesando…</p>
+    <p class="busy-sub" id="busy-sub"></p>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script src="js/vendor/lame.min.js"></script>

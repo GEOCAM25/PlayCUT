@@ -18,7 +18,8 @@ export class Timeline {
     this.project = null;
     this.selectedId = null;
     this.selectedTrack = null;
-    this._ignoreScroll = false;
+    this._selfScrollAt = -1e9;
+    this._pendingRender = 0;
     this._zoom = 1;
     this.scroll.addEventListener('scroll', () => this._onScroll(), { passive: true });
   }
@@ -54,8 +55,16 @@ export class Timeline {
   }
 
   // ---------------- Render ----------------
+  // Agrupa varias peticiones de render en un solo repintado (evita rehacer el
+  // DOM varias veces por gesto). Usa render() directo solo si hace falta ya.
+  requestRender() {
+    if (this._pendingRender) return;
+    this._pendingRender = requestAnimationFrame(() => { this._pendingRender = 0; this.render(); });
+  }
+
   render() {
     if (!this.project) return;
+    if (this._pendingRender) { cancelAnimationFrame(this._pendingRender); this._pendingRender = 0; }
     const total = Math.max(projectDuration(this.project), 3);
     this.root.style.width = (total * this.pps + window.innerWidth) + 'px';
     this._renderRuler(total);
@@ -200,9 +209,15 @@ export class Timeline {
   _mediaPeaks(mediaId) { return (this.mediaPeaks && this.mediaPeaks.get(mediaId)) || null; }
 
   // Dibuja la forma de onda del audio en el clip, respetando el recorte.
+  // El lienzo se cachea por (medio + recorte + ancho): redibujar la onda en
+  // cada render hacía que la línea de tiempo fuese muy lenta con audio.
   _drawWave(el, clip, peaks) {
     const wPx = Math.max(8, Math.round((clip.outPoint - clip.inPoint) * this.pps));
     const cw = Math.min(1200, wPx), ch = 34;
+    if (!this._waveCache) this._waveCache = new Map();
+    const key = `${clip.mediaId}|${(clip.inPoint || 0).toFixed(2)}|${(clip.outPoint || 0).toFixed(2)}|${cw}`;
+    const hit = this._waveCache.get(key);
+    if (hit) { el.insertBefore(this._copyCanvas(hit), el.firstChild); return; }
     const cv = document.createElement('canvas');
     cv.className = 'wave-canvas';
     cv.width = cw; cv.height = ch;
@@ -221,7 +236,17 @@ export class Timeline {
       const bh = Math.max(1, amp * (ch - 3));
       cx.fillRect(i * bw, (ch - bh) / 2, Math.max(1, bw * 0.7), bh);
     }
-    el.insertBefore(cv, el.firstChild);
+    if (this._waveCache.size > 24) this._waveCache.clear();
+    this._waveCache.set(key, cv);
+    el.insertBefore(this._copyCanvas(cv), el.firstChild);
+  }
+
+  // Copia un lienzo (cloneNode NO copia el mapa de bits).
+  _copyCanvas(src) {
+    const c = document.createElement('canvas');
+    c.className = src.className; c.width = src.width; c.height = src.height;
+    c.getContext('2d').drawImage(src, 0, 0);
+    return c;
   }
 
   // ---------------- Recorte ----------------
@@ -379,9 +404,18 @@ export class Timeline {
 
   // ---------------- Scroll <-> tiempo ----------------
   _onScroll() {
-    if (this._ignoreScroll) { this._ignoreScroll = false; return; }
+    // Ignora los eventos que provoca nuestro propio setPlayhead. Se usa una
+    // marca de tiempo (no un booleano de un solo uso): fijar scrollLeft puede
+    // no emitir evento, y antes esa marca se quedaba puesta y se tragaba el
+    // siguiente arrastre real del usuario.
+    if (performance.now() - (this._selfScrollAt || -1e9) < 120) return;
     if (this.isPlaying && this.isPlaying()) return;
     this.onScrub && this.onScrub(Math.max(0, this.scroll.scrollLeft / this.pps));
   }
-  setPlayhead(time) { this._ignoreScroll = true; this.scroll.scrollLeft = time * this.pps; }
+  setPlayhead(time) {
+    const x = time * this.pps;
+    if (Math.abs(this.scroll.scrollLeft - x) < 0.5) return; // evita trabajo inútil
+    this._selfScrollAt = performance.now();
+    this.scroll.scrollLeft = x;
+  }
 }

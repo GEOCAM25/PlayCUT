@@ -1371,6 +1371,53 @@ function openSpeedSheet(clip) {
   setActive('#speed-presets', 'speed', clip.speed || 1);
   openSheet('sheet-speed');
 }
+// Curvas de velocidad. Cada curva es una lista de tramos: qué porción del
+// clip ocupa (fracción del original) y a qué velocidad va. Se aplican
+// partiendo el clip en varios, así reutilizan el motor ya probado y salen
+// idénticas en la vista previa y en la exportación.
+const SPEED_CURVES = {
+  montage:  { nombre: 'Montaje',        tramos: [[.25, .5], [.5, 2.4], [.25, .5]] },
+  hero:     { nombre: 'Héroe',          tramos: [[.2, 2], [.25, .35], [.2, 2], [.35, 1]] },
+  bullet:   { nombre: 'Bala',           tramos: [[.35, 3], [.3, .3], [.35, 3]] },
+  flashin:  { nombre: 'Entrada rápida', tramos: [[.3, 3.5], [.7, 1]] },
+  flashout: { nombre: 'Salida rápida',  tramos: [[.7, 1], [.3, 3.5]] },
+  jump:     { nombre: 'Saltos',         tramos: [[.2, 2.5], [.2, .6], [.2, 2.5], [.2, .6], [.2, 2.5]] },
+};
+function applySpeedCurve(key) {
+  const c = SPEED_CURVES[key];
+  if (!c || !speedTarget) return;
+  const clips = project.tracks.video;
+  const idx = clips.indexOf(speedTarget);
+  if (idx < 0) { toast('La curva solo se aplica a clips del video principal'); return; }
+  if (speedTarget.type !== 'video') { toast('La curva de velocidad es para clips de video'); return; }
+  const src = speedTarget.outPoint - speedTarget.inPoint;
+  if (src < 0.6) { toast('El clip es muy corto para una curva de velocidad'); return; }
+
+  pushHistory();
+  const base = speedTarget;
+  const inPoint = base.inPoint;
+  const nuevos = [];
+  let cursor = inPoint;
+  c.tramos.forEach(([frac, spd], i) => {
+    const seg = JSON.parse(JSON.stringify(base));
+    seg.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7) + i;
+    seg.inPoint = cursor;
+    // El último tramo llega justo al final para no perder ni un fotograma.
+    cursor = (i === c.tramos.length - 1) ? base.outPoint : Math.min(base.outPoint, cursor + src * frac);
+    seg.outPoint = cursor;
+    seg.speed = spd;
+    // Solo el primer tramo conserva la transición de entrada del clip original.
+    if (i > 0) seg.transition = { type: 'none', duration: 0.6 };
+    seg.keyframes = [];
+    nuevos.push(seg);
+  });
+  clips.splice(idx, 1, ...nuevos);
+  refresh(); pushHistory(); closeSheets();
+  timeline.select(nuevos[0].id, 'video');
+  haptic([12, 30, 12]);
+  toast(`Curva «${c.nombre}» aplicada en ${nuevos.length} tramos`);
+}
+
 function bindSpeed() {
   const apply = (v) => {
     if (!speedTarget) return;
@@ -1382,6 +1429,11 @@ function bindSpeed() {
   };
   $('#adj-speed').addEventListener('input', () => apply(+$('#adj-speed').value));
   $('#speed-presets').addEventListener('click', (e) => { const b = e.target.closest('[data-speed]'); if (b) apply(+b.dataset.speed); });
+  $('#speed-curves').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-curve]'); if (!b) return;
+    if (!requirePro('curves')) return;
+    applySpeedCurve(b.dataset.curve);
+  });
 }
 
 // ---------- Transición ----------

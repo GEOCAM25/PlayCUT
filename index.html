@@ -271,6 +271,22 @@
           <button class="chip" data-motion="zoomPanR">Zoom + pan</button>
         </div>
 
+        <p class="sheet-sub only-visual">Recortar la imagen</p>
+        <div class="opt-chips only-visual" id="crop-row">
+          <button class="chip" data-crop="none">Sin recorte</button>
+          <button class="chip" data-crop="center">Centro 80%</button>
+          <button class="chip" data-crop="1:1">Cuadrado</button>
+          <button class="chip" data-crop="16:9">16:9</button>
+          <button class="chip" data-crop="9:16">9:16</button>
+          <button class="chip" data-crop="4:5">4:5</button>
+        </div>
+        <label class="only-visual">Zoom del recorte <output id="out-cropzoom">100%</output>
+          <input id="adj-cropzoom" type="range" min="30" max="100" value="100" /></label>
+        <label class="only-visual">Recorte ← → <output id="out-cropx">50%</output>
+          <input id="adj-cropx" type="range" min="0" max="100" value="50" /></label>
+        <label class="only-visual">Recorte ↑ ↓ <output id="out-cropy">50%</output>
+          <input id="adj-cropy" type="range" min="0" max="100" value="50" /></label>
+
         <p class="sheet-sub">Espejo y encuadre</p>
         <div class="opt-chips" id="flip-row">
           <button class="chip" data-flip="h">Voltear ↔</button>

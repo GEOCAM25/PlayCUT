@@ -1157,6 +1157,7 @@ function openAdjustSheet(clip, track) {
   setActive('#motion-row', 'motion', clip.motion || 'none');
   setActive('#anim-in-row', 'animin', clip.animIn || 'none');
   setActive('#anim-out-row', 'animout', clip.animOut || 'none');
+  updateCropUI(clip);
   $('#flip-row [data-flip=h]').classList.toggle('active', !!clip.flipH);
   $('#flip-row [data-flip=v]').classList.toggle('active', !!clip.flipV);
   setActive('#fill-row', 'fill', clip.fillMode || 'contain');
@@ -1235,6 +1236,47 @@ function updateAdjustOutputs() {
   $('#out-animoutdur').textContent = (+$('#adj-animoutdur').value).toFixed(1) + 's';
 }
 
+// ---------- Recorte manual ----------
+// Guardamos el recorte como zoom + centro: es mucho más fácil de manejar con
+// deslizadores que cuatro bordes sueltos, y da el mismo resultado.
+function cropFromUI(clip) {
+  const zoom = (+$('#adj-cropzoom').value) / 100;      // 1 = imagen entera
+  const cx = (+$('#adj-cropx').value) / 100;
+  const cy = (+$('#adj-cropy').value) / 100;
+  const ratio = clip._cropRatio || null;
+  let w = zoom, h = zoom;
+  if (ratio) {
+    // Ajusta la forma del recorte a la proporción pedida, sin salirse.
+    const srcAR = (clip.srcWidth || 16) / (clip.srcHeight || 9);
+    const want = ratio;
+    if (want > srcAR) { w = zoom; h = Math.min(1, zoom * srcAR / want); }
+    else { h = zoom; w = Math.min(1, zoom * want / srcAR); }
+  }
+  const x = Math.max(0, Math.min(1 - w, cx - w / 2));
+  const y = Math.max(0, Math.min(1 - h, cy - h / 2));
+  return { x, y, w, h };
+}
+function updateCropUI(clip) {
+  const c = clip.crop || { x: 0, y: 0, w: 1, h: 1 };
+  const zoom = Math.round(Math.max(c.w, c.h) * 100);
+  $('#adj-cropzoom').value = zoom;
+  $('#out-cropzoom').textContent = zoom + '%';
+  const cx = Math.round((c.x + c.w / 2) * 100), cy = Math.round((c.y + c.h / 2) * 100);
+  $('#adj-cropx').value = cx; $('#out-cropx').textContent = cx + '%';
+  $('#adj-cropy').value = cy; $('#out-cropy').textContent = cy + '%';
+  const sinRecorte = c.x <= 0.001 && c.y <= 0.001 && c.w >= 0.999 && c.h >= 0.999;
+  setActive('#crop-row', 'crop', sinRecorte ? 'none' : (clip._cropTag || 'center'));
+}
+function applyCropFromUI() {
+  if (!adjustTarget) return;
+  const c = adjustTarget.clip;
+  c.crop = cropFromUI(c);
+  $('#out-cropzoom').textContent = $('#adj-cropzoom').value + '%';
+  $('#out-cropx').textContent = $('#adj-cropx').value + '%';
+  $('#out-cropy').textContent = $('#adj-cropy').value + '%';
+  engine.render(engine.playhead); scheduleSave();
+}
+
 function bindAdjust() {
   const apply = () => {
     if (!adjustTarget) return;
@@ -1295,6 +1337,29 @@ function bindAdjust() {
     b.classList.toggle('active', b.dataset.flip === 'h' ? !!c.flipH : !!c.flipV);
     engine.render(engine.playhead); scheduleSave();
   });
+  ['#adj-cropzoom', '#adj-cropx', '#adj-cropy'].forEach(sel => $(sel).addEventListener('input', applyCropFromUI));
+  $('#crop-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-crop]'); if (!b || !adjustTarget) return;
+    const c = adjustTarget.clip;
+    pushHistory();
+    const tag = b.dataset.crop;
+    c._cropTag = tag;
+    if (tag === 'none') {
+      c.crop = { x: 0, y: 0, w: 1, h: 1 };
+      c._cropRatio = null; delete c._cropTag;
+    } else if (tag === 'center') {
+      c._cropRatio = null;
+      $('#adj-cropzoom').value = 80; $('#adj-cropx').value = 50; $('#adj-cropy').value = 50;
+      c.crop = cropFromUI(c);
+    } else {
+      const [a, bb] = tag.split(':').map(Number);
+      c._cropRatio = a / bb;
+      $('#adj-cropzoom').value = 100; $('#adj-cropx').value = 50; $('#adj-cropy').value = 50;
+      c.crop = cropFromUI(c);
+    }
+    updateCropUI(c);
+    engine.render(engine.playhead); scheduleSave(); haptic(8);
+  });
   $('#btn-apply-all-visual').addEventListener('click', () => {
     if (!adjustTarget) return;
     pushHistory();
@@ -1311,6 +1376,8 @@ function bindAdjust() {
     pushHistory();
     const c = adjustTarget.clip;
     c.scale = 1; c.offsetX = 0; c.offsetY = 0; c.rotate = 0; c.flipH = false; c.flipV = false;
+    c.crop = { x: 0, y: 0, w: 1, h: 1 };
+    updateCropUI(c);
     if (c.keyframes) c.keyframes = [];
     $('#adj-scale').value = 100; $('#out-scale').textContent = '100%';
     $('#adj-rotate').value = 0; $('#out-rotate').textContent = '0°';

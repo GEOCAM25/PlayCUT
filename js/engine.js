@@ -399,6 +399,20 @@ export class Engine {
       if (keyed) { dsrc = keyed; dsw = keyed.width; dsh = keyed.height; }
     }
 
+    // Recorte manual: nos quedamos solo con una parte de la imagen original.
+    // Se guarda en fracciones (0..1) para que valga a cualquier resolución.
+    let srcRect = null;
+    const cr = clip.crop;
+    if (cr && (cr.x > 0.001 || cr.y > 0.001 || cr.w < 0.999 || cr.h < 0.999)) {
+      const sx = Math.max(0, Math.min(1, cr.x)) * dsw;
+      const sy = Math.max(0, Math.min(1, cr.y)) * dsh;
+      const sW = Math.max(2, Math.min(dsw - sx, cr.w * dsw));
+      const sH = Math.max(2, Math.min(dsh - sy, cr.h * dsh));
+      srcRect = { sx, sy, sw: sW, sh: sH };
+      // El encaje se calcula con el tamaño ya recortado.
+      dsw = sW; dsh = sH;
+    }
+
     const q = this._clipProgress(clip, local);
     const m = this._motion(clip, q);
     const W = this.canvas.width, H = this.canvas.height;
@@ -451,7 +465,7 @@ export class Engine {
     const chromaOn = !!(clip.chroma && clip.chroma.on);
     const blended = extra.isOverlay && clip.blend && clip.blend !== 'normal';
     const masked = clip.mask && clip.mask !== 'none';
-    const fitOpts = { mask: masked ? clip.mask : null, flipH: !!clip.flipH, flipV: !!clip.flipV };
+    const fitOpts = { mask: masked ? clip.mask : null, flipH: !!clip.flipH, flipV: !!clip.flipV, srcRect };
     if (extra.isOverlay) {
       fitOpts.radius = (chromaOn || masked) ? 0 : clip.radius;
       fitOpts.shadow = clip.shadow && !chromaOn && !blended && !masked;
@@ -568,7 +582,10 @@ export class Engine {
     }
     if (opts && opts.mask) { this._maskPath(ctx, opts.mask, w, h); ctx.clip(); }
     else if (r > 0) { this._roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip(); }
-    ctx.drawImage(src, -w / 2, -h / 2, w, h);
+    // Con recorte usamos la forma de 9 argumentos para tomar solo ese trozo.
+    const sr = opts && opts.srcRect;
+    if (sr) ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, -w / 2, -h / 2, w, h);
+    else ctx.drawImage(src, -w / 2, -h / 2, w, h);
     // Borde de la superposición (se dibuja dentro del recorte, por eso el doble
     // de grosor: la mitad visible queda pegada al borde de la forma).
     if (opts && opts.border && opts.border.w > 0) {

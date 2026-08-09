@@ -34,8 +34,11 @@ export function computeExportSize(project, tier) {
 // engine: Engine configurada. opts: { tier, fps, onProgress }
 export async function exportProject(engine, opts = {}) {
   const { onProgress } = opts;
-  const duration = engine.duration;
-  if (duration <= 0) throw new Error('El proyecto está vacío.');
+  if (engine.duration <= 0) throw new Error('El proyecto está vacío.');
+  // Tramo a exportar (por defecto, todo).
+  const from = Math.max(0, Math.min(opts.from ?? 0, engine.duration - 0.1));
+  const to = Math.max(from + 0.15, Math.min(opts.to ?? engine.duration, engine.duration));
+  const duration = to - from;
 
   const tier = opts.tier || 1080;
   const fps = opts.fps || engine.project.fps || 30;
@@ -71,18 +74,27 @@ export async function exportProject(engine, opts = {}) {
   });
 
   engine.pause();
-  engine.playhead = 0;
-  engine.seek(0);
-  engine.render(0);
-  await new Promise((r) => setTimeout(r, 150));
+  engine.clearLoop();
+  engine.playhead = from;
+  engine.seek(from);
+  engine.render(from);
+  await new Promise((r) => setTimeout(r, 220));
 
   recorder.start(200);
 
   await new Promise((resolve) => {
     const prevTick = engine.onTick;
+    let terminado = false;
     engine.onTick = (t, ended) => {
-      if (onProgress) onProgress(Math.min(99, Math.round((t / duration) * 100)));
-      if (ended) { engine.onTick = prevTick; setTimeout(resolve, 220); }
+      if (onProgress) onProgress(Math.min(99, Math.max(0, Math.round(((t - from) / duration) * 100))));
+      // Se para al llegar al final del TRAMO, no solo al final del proyecto.
+      if (terminado) return;
+      if (ended || t >= to - 0.001) {
+        terminado = true;
+        engine.onTick = prevTick;
+        engine.pause();
+        setTimeout(resolve, 240);
+      }
     };
     engine.play();
   });

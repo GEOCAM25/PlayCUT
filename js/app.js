@@ -1114,9 +1114,16 @@ function stopLivePreview() {
   }
 }
 
+// Dónde empieza un clip de la pista de video, en segundos.
+// (videoClipStart espera el ÍNDICE del clip, no su id.)
+function inicioDeVideo(clip) {
+  const i = project.tracks.video.findIndex(c => c.id === clip.id);
+  return i < 0 ? 0 : videoClipStart(project.tracks.video, i);
+}
+
 // Tramos típicos que interesa ver de un clip.
 function rangoClip(clip, track) {
-  const inicio = track === 'video' ? videoClipStart(project.tracks.video, clip.id) : (clip.start || 0);
+  const inicio = track === 'video' ? inicioDeVideo(clip) : (clip.start || 0);
   const dur = track === 'overlay' ? overlayDuration(clip) : clipDuration(clip);
   return { inicio, fin: inicio + dur, dur };
 }
@@ -1168,15 +1175,20 @@ function fitPreviewToSheet(id) {
   const aplicar = () => {
     const arriba = wrap.getBoundingClientRect().top;
     const hoja = sheet.getBoundingClientRect().top;
-    const hueco = Math.round(hoja - arriba - 10);
+    const hueco = Math.round(hoja - arriba - 12);
     if (hueco > 90) {
       wrap.style.setProperty('height', hueco + 'px', 'important');
       wrap.style.setProperty('flex', '0 0 auto', 'important');
       engine.render(engine.playhead);
     }
   };
+  // La hoja sube con una animación de .3s: hay que medir cuando ya ha llegado,
+  // no a mitad de camino, o la vista previa queda unos píxeles de más y el
+  // panel le come el borde inferior.
   requestAnimationFrame(aplicar);
-  setTimeout(aplicar, 320); // otra vez cuando termina la animación de subida
+  sheet.addEventListener('transitionend', aplicar, { once: true });
+  setTimeout(aplicar, 340);
+  setTimeout(aplicar, 620);
 }
 
 // Añade un botón ✕ (siempre visible) a cada hoja y cierra el teclado al tocar
@@ -2262,7 +2274,7 @@ function bindSpeed() {
     $('#out-speed').textContent = speedTarget.speed.toFixed(2) + '×';
     setActive('#speed-presets', 'speed', speedTarget.speed);
     refresh();
-    const inicio = videoClipStart(project.tracks.video, speedTarget.id);
+    const inicio = inicioDeVideo(speedTarget);
     livePreview(inicio, inicio + Math.min(4, clipDuration(speedTarget)), 'Velocidad ' + speedTarget.speed.toFixed(2) + '×');
   };
   $('#adj-speed').addEventListener('input', () => apply(+$('#adj-speed').value));
@@ -2295,7 +2307,7 @@ function openTransitionSheet(clip) {
 // Reproduce en bucle el momento exacto de la unión entre los dos clips.
 function previewTransicion() {
   if (!transTarget) return;
-  const corte = videoClipStart(project.tracks.video, transTarget.id);
+  const corte = inicioDeVideo(transTarget);
   const dur = (transTarget.transition && transTarget.transition.duration) || 0.6;
   livePreview(corte - 0.7, corte + dur + 0.5, 'Transición');
 }
@@ -2535,14 +2547,78 @@ function onKey(e) {
 }
 function updateExportMeta() {
   const { w, h } = computeExportSize(project, exportRes);
-  $('#export-meta').textContent = `${w} × ${h} · ${exportFps} fps`;
+  const total = projectDuration(project);
+  const r = rangoExport();
+  const dur = Math.max(0, r.to - r.from);
+  const parcial = dur < total - 0.05;
+  $('#export-meta').textContent = `${w} × ${h} · ${exportFps} fps · ${formatTime(dur)}`
+    + (parcial ? ` (de ${formatTime(total)})` : '');
 }
+// ---------- Tramo a exportar ----------
+let exportRangeMode = 'all';
+let exportFrom = 0, exportTo = 0;
+
+function rangoExport() {
+  const total = projectDuration(project);
+  if (exportRangeMode === 'all') return { from: 0, to: total };
+  return { from: Math.max(0, exportFrom), to: Math.min(total, Math.max(exportFrom + 0.2, exportTo)) };
+}
+
+function updateExportRangeUI() {
+  const total = projectDuration(project) || 1;
+  const r = rangoExport();
+  exportFrom = r.from; exportTo = r.to;
+  setActive('#export-range-row', 'range', exportRangeMode);
+  const manual = exportRangeMode !== 'all';
+  $$('.only-range').forEach(el => el.style.display = manual ? '' : 'none');
+  $('#export-from').value = Math.round((r.from / total) * 1000);
+  $('#export-to').value = Math.round((r.to / total) * 1000);
+  $('#out-rangefrom').textContent = formatTime(r.from);
+  $('#out-rangeto').textContent = formatTime(r.to);
+  updateExportMeta();
+}
+
+function bindExportRange() {
+  $('#export-range-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-range]'); if (!b) return;
+    const total = projectDuration(project);
+    exportRangeMode = b.dataset.range;
+    if (exportRangeMode === 'all') { exportFrom = 0; exportTo = total; }
+    else if (exportRangeMode === 'cursor') { exportFrom = engine.playhead; exportTo = total; }
+    else if (exportRangeMode === 'clip') {
+      const sel = getSelectedClip();
+      if (!sel) { toast('Selecciona antes un clip'); exportRangeMode = 'all'; }
+      else {
+        const r = rangoClip(sel.clip, sel.track);
+        exportFrom = r.inicio; exportTo = r.fin;
+      }
+    }
+    updateExportRangeUI(); haptic(8);
+  });
+  const mover = () => {
+    const total = projectDuration(project) || 1;
+    let a = (+$('#export-from').value / 1000) * total;
+    let b = (+$('#export-to').value / 1000) * total;
+    // El principio nunca puede pasar al final (ni al revés).
+    if (b - a < 0.2) { if (document.activeElement === $('#export-from')) b = Math.min(total, a + 0.2); else a = Math.max(0, b - 0.2); }
+    exportFrom = a; exportTo = b;
+    if (exportRangeMode === 'all') exportRangeMode = 'custom';
+    updateExportRangeUI();
+    engine.seek(a); updateTimeUI(a); timeline.setPlayhead(a);
+  };
+  $('#export-from').addEventListener('input', mover);
+  $('#export-to').addEventListener('input', mover);
+}
+
 function bindExport() {
+  bindExportRange();
   els.btnExport.addEventListener('click', () => {
     if (projectDuration(project) <= 0) { toast('El proyecto está vacío'); return; }
     exportFps = project.fps || 30;
     setActive('#export-res', 'res', exportRes);
     setActive('#export-fps', 'fps', exportFps);
+    exportRangeMode = 'all'; exportFrom = 0; exportTo = projectDuration(project);
+    updateExportRangeUI();
     updateExportMeta();
     renderPlatformCheck();
     $('#export-config').hidden = false; $('#export-progress').hidden = true; $('#export-done').hidden = true;
@@ -2556,8 +2632,9 @@ function bindExport() {
     $('#export-config').hidden = true; $('#export-progress').hidden = false;
     setPlayIcon(false);
     try {
+      const r = rangoExport();
       const { blob, ext, w, h, fps } = await exportProject(engine, {
-        tier: exportRes, fps: exportFps,
+        tier: exportRes, fps: exportFps, from: r.from, to: r.to,
         onProgress: (p) => { $('#export-percent').textContent = p + '%'; $('#export-bar').style.width = p + '%'; },
       });
       const url = URL.createObjectURL(blob);

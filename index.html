@@ -821,6 +821,17 @@
           <button class="opt" data-fps="30">30</button>
           <button class="opt" data-fps="60">60</button>
         </div>
+        <p class="sheet-sub">Qué parte exportar</p>
+        <div class="opt-chips" id="export-range-row">
+          <button class="chip active" data-range="all">Todo el video</button>
+          <button class="chip" data-range="cursor">Desde el cursor</button>
+          <button class="chip" data-range="clip">Solo este clip</button>
+          <button class="chip" data-range="custom">A mano</button>
+        </div>
+        <label class="only-range">Empieza en <output id="out-rangefrom">0:00.0</output>
+          <input id="export-from" type="range" min="0" max="1000" value="0" /></label>
+        <label class="only-range">Acaba en <output id="out-rangeto">0:00.0</output>
+          <input id="export-to" type="range" min="0" max="1000" value="1000" /></label>
         <p class="export-meta" id="export-meta">1080 × 1920 · 30 fps</p>
         <p class="export-note">El video se genera en tu teléfono en tiempo real. Mantén la pantalla encendida.</p>
         <button class="primary-btn full" id="btn-start-export">Empezar exportación</button>

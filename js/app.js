@@ -17,6 +17,7 @@ import * as perf from './perf.js';
 import * as pro from './pro.js';
 import * as curves from './curves.js';
 import { analyzeShake, STAB_MAX_DUR } from './stabilize.js';
+import { detectSilences, keepRanges, detectScenes } from './autocut.js';
 import * as tutorial from './tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -480,6 +481,7 @@ function bindToolbar() {
       case 'add-text': addTextAtPlayhead(false); break;
       case 'subs': openSubsSheet(); break;
       case 'template': openTemplatesSheet(); break;
+      case 'autocut': openAutocutSheet(); break;
       case 'add-sticker': openStickerSheet(); break;
       case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
@@ -1714,6 +1716,141 @@ function updateFocusUI() {
     $('#adj-focusy').value = f.y ?? 50;
   }
   updateAdjustOutputs();
+}
+
+// ---------- Corte automático (silencios y cambios de plano) ----------
+let acTarget = null;     // { clip, index }
+let acModo = 'silence';
+let acPlan = null;       // resultado del análisis, listo para aplicar
+
+function openAutocutSheet() {
+  const sel = getSelectedClip();
+  if (!sel || sel.track !== 'video' || sel.clip.type !== 'video') {
+    toast('Selecciona antes un clip de video');
+    return;
+  }
+  acTarget = { clip: sel.clip, index: project.tracks.video.findIndex(c => c.id === sel.clip.id) };
+  acPlan = null;
+  $('#ac-result').textContent = '';
+  $('#ac-aplicar').disabled = true;
+  updateAutocutUI();
+  openSheet('sheet-autocut');
+}
+
+function updateAutocutUI() {
+  setActive('#ac-mode', 'acmode', acModo);
+  $$('.only-silence').forEach(el => el.style.display = acModo === 'silence' ? '' : 'none');
+  $('#out-acsens').textContent = $('#ac-sens').value + '%';
+  $('#out-acmin').textContent = (+$('#ac-min').value).toFixed(1) + 's';
+  $('#out-acpad').textContent = (+$('#ac-pad').value).toFixed(2) + 's';
+  $('#ac-hint').textContent = acModo === 'silence'
+    ? 'Borra las pausas de una grabación hablada. Sube la sensibilidad si se le escapan silencios; bájala si se come palabras.'
+    : 'Divide el clip donde cambia la imagen, sin borrar nada. Útil para separar tomas de una grabación larga.';
+}
+
+async function acAnalizar() {
+  if (!acTarget) return;
+  const clip = acTarget.clip;
+  const desde = clip.inPoint, hasta = clip.outPoint;
+  try {
+    const rec = await loadMediaRecord(clip.mediaId);
+    if (!rec || !rec.blob) { toast('No se encuentra el archivo'); return; }
+
+    if (acModo === 'silence') {
+      busy('Escuchando el audio…');
+      const { silencios } = await detectSilences(rec.blob, {
+        sensibilidad: +$('#ac-sens').value,
+        minSilencio: +$('#ac-min').value,
+        margen: +$('#ac-pad').value,
+      });
+      const trozos = keepRanges(silencios, desde, hasta);
+      busyDone();
+      if (!trozos.length) {
+        acPlan = null; $('#ac-aplicar').disabled = true;
+        $('#ac-result').textContent = 'Con esta sensibilidad se quitaría el clip entero. Bájala un poco.';
+        return;
+      }
+      const quedan = trozos.reduce((s, t) => s + (t.to - t.from), 0);
+      const original = hasta - desde;
+      const fuera = Math.max(0, original - quedan);
+      acPlan = { tipo: 'silence', trozos };
+      $('#ac-aplicar').disabled = fuera < 0.05;
+      $('#ac-result').textContent = fuera < 0.05
+        ? 'No he encontrado silencios que quitar.'
+        : `Encontrados ${trozos.length} tramo${trozos.length > 1 ? 's' : ''} con voz · se quitarían ${formatTime(fuera)} de ${formatTime(original)}.`;
+    } else {
+      busy('Buscando cambios de plano… 0%');
+      const cortes = await detectScenes(rec.blob, desde, hasta, +$('#ac-sens').value,
+        (p) => busyUpdate(`Buscando cambios de plano… ${Math.round(p * 100)}%`));
+      busyDone();
+      acPlan = { tipo: 'scene', cortes };
+      $('#ac-aplicar').disabled = !cortes.length;
+      $('#ac-result').textContent = cortes.length
+        ? `Encontrados ${cortes.length} cambio${cortes.length > 1 ? 's' : ''} de plano · el clip quedaría en ${cortes.length + 1} trozos.`
+        : 'No he encontrado cambios de plano. Sube la sensibilidad si sabes que los hay.';
+    }
+    haptic(10);
+  } catch (e) {
+    busyDone(); console.error(e);
+    $('#ac-result').textContent = 'No se pudo analizar: ' + (e.message || '');
+  }
+}
+
+// Construye los clips nuevos a partir de una lista de tramos del ORIGINAL.
+function acReemplazar(tramos) {
+  const clips = project.tracks.video;
+  const i = clips.findIndex(c => c.id === acTarget.clip.id);
+  if (i < 0) return 0;
+  const base = clips[i];
+  const nuevos = tramos.map((t, k) => {
+    const c = JSON.parse(JSON.stringify(base));
+    c.id = Date.now().toString(36) + k + Math.random().toString(36).slice(2, 6);
+    c.inPoint = t.from; c.outPoint = t.to;
+    // Solo el primero conserva la transición de entrada del clip original.
+    if (k > 0) c.transition = { type: 'none', duration: 0.6 };
+    // La estabilización y las curvas se calcularon para otro tramo: se caen.
+    if (c.stab) c.stab = null;
+    return c;
+  });
+  clips.splice(i, 1, ...nuevos);
+  return nuevos.length;
+}
+
+function acAplicar() {
+  if (!acPlan || !acTarget) return;
+  pushHistory();
+  let n = 0;
+  if (acPlan.tipo === 'silence') {
+    n = acReemplazar(acPlan.trozos);
+    refresh(); closeSheets(); haptic([12, 40, 12]);
+    toast(`Silencios quitados — el clip quedó en ${n} trozo${n > 1 ? 's' : ''}`);
+  } else {
+    const clip = acTarget.clip;
+    const puntos = [clip.inPoint, ...acPlan.cortes, clip.outPoint];
+    const tramos = [];
+    for (let k = 0; k < puntos.length - 1; k++) {
+      if (puntos[k + 1] - puntos[k] > 0.15) tramos.push({ from: puntos[k], to: puntos[k + 1] });
+    }
+    n = acReemplazar(tramos);
+    refresh(); closeSheets(); haptic([12, 40, 12]);
+    toast(`Dividido en ${n} plano${n > 1 ? 's' : ''}`);
+  }
+  acPlan = null;
+}
+
+function bindAutocut() {
+  $('#ac-mode').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-acmode]'); if (!b) return;
+    acModo = b.dataset.acmode;
+    acPlan = null; $('#ac-aplicar').disabled = true; $('#ac-result').textContent = '';
+    updateAutocutUI(); haptic(8);
+  });
+  ['#ac-sens', '#ac-min', '#ac-pad'].forEach(sel => $(sel).addEventListener('input', () => {
+    acPlan = null; $('#ac-aplicar').disabled = true; $('#ac-result').textContent = '';
+    updateAutocutUI();
+  }));
+  $('#ac-analizar').addEventListener('click', acAnalizar);
+  $('#ac-aplicar').addEventListener('click', acAplicar);
 }
 
 // ---------- Plantillas de proyecto ----------
@@ -3158,7 +3295,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs(); bindTemplates();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs(); bindTemplates(); bindAutocut();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();

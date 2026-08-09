@@ -30,6 +30,7 @@
     <symbol id="ic-marker" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
     <symbol id="ic-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9.5 4V3h5v1"/><path d="M9 11h6M9 15h4"/></symbol>
     <symbol id="ic-adjust" viewBox="0 0 24 24"><path d="M5 21v-7M5 10V3M12 21v-11M12 6V3M19 21v-4M19 13V3"/><path d="M2.5 14h5M9.5 6h5M16.5 17h5"/></symbol>
+    <symbol id="ic-autocut" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="18" r="2.6"/><path d="M7.8 16.2 18 4M16.2 16.2 6 4"/><path d="M2.5 9.5h3M8.5 9.5h2M13.5 9.5h1.5M18 9.5h3.5"/></symbol>
     <symbol id="ic-template" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2.5"/><path d="M3 9h18M9 9v11.5"/></symbol>
     <symbol id="ic-subs" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 11h5M13.5 11H18M6 15h8M16 15h2"/></symbol>
     <symbol id="ic-stab" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7.5 12h9"/><path d="M12 9.2v5.6"/><path d="M2 9v6M22 9v6"/></symbol>
@@ -150,6 +151,7 @@
       <button class="tool" data-action="add-media"><i><svg class="ic" aria-hidden="true"><use href="#ic-media"/></svg></i><span>Añadir</span></button>
       <button class="tool" data-action="add-overlay"><i><svg class="ic" aria-hidden="true"><use href="#ic-overlay"/></svg></i><span>Superponer</span></button>
       <button class="tool" data-action="add-text"><i><svg class="ic" aria-hidden="true"><use href="#ic-text"/></svg></i><span>Texto</span></button>
+      <button class="tool" data-action="autocut"><i><svg class="ic" aria-hidden="true"><use href="#ic-autocut"/></svg></i><span>Corte auto</span></button>
       <button class="tool" data-action="template"><i><svg class="ic" aria-hidden="true"><use href="#ic-template"/></svg></i><span>Plantilla</span></button>
       <button class="tool" data-action="subs"><i><svg class="ic" aria-hidden="true"><use href="#ic-subs"/></svg></i><span>Subtítulos</span></button>
       <button class="tool" data-action="add-sticker"><i><svg class="ic" aria-hidden="true"><use href="#ic-sticker"/></svg></i><span>Sticker</span></button>
@@ -858,6 +860,33 @@
   <div id="sheet-backdrop" class="sheet-backdrop"></div>
 
   <!-- Superposición de trabajo en curso (importar, convertir, congelar…) -->
+  <!-- ===================== HOJA: CORTE AUTOMÁTICO ===================== -->
+  <div id="sheet-autocut" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Corte automático</h3>
+      <p class="sheet-sub">Sobre el clip seleccionado</p>
+      <div class="opt-chips" id="ac-mode">
+        <button class="chip active" data-acmode="silence">Quitar silencios</button>
+        <button class="chip" data-acmode="scene">Cortar por planos</button>
+      </div>
+
+      <label>Sensibilidad <output id="out-acsens">50%</output>
+        <input id="ac-sens" type="range" min="0" max="100" value="50" /></label>
+      <label class="only-silence">Silencio mínimo <output id="out-acmin">0.4s</output>
+        <input id="ac-min" type="range" min="0.2" max="3" step="0.1" value="0.4" /></label>
+      <label class="only-silence">Margen alrededor de la voz <output id="out-acpad">0.08s</output>
+        <input id="ac-pad" type="range" min="0" max="0.5" step="0.01" value="0.08" /></label>
+
+      <p class="export-meta" id="ac-hint">«Quitar silencios» borra las pausas de una grabación hablada. «Cortar por planos» divide el clip donde cambia la imagen, sin borrar nada.</p>
+      <div class="opt-grid two">
+        <button class="opt" id="ac-analizar"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-autocut"/></svg></span>Analizar</button>
+        <button class="opt" id="ac-aplicar" disabled><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-split"/></svg></span>Aplicar</button>
+      </div>
+      <p class="export-meta" id="ac-result"></p>
+    </div>
+  </div>
+
   <!-- ===================== HOJA: PLANTILLAS DE PROYECTO ===================== -->
   <div id="sheet-templates" class="sheet">
     <div class="sheet-inner">

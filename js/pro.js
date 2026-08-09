@@ -16,6 +16,7 @@ export const PRO_FEATURES = {
   curves: 'Curva de velocidad',
   colorcurves: 'Curvas de color',
   stab: 'Estabilizar video',
+  focus: 'Desenfoque selectivo',
   safe: 'Guías de encuadre',
   beat: 'Marcadores al ritmo',
   histogram: 'Histograma en vivo',

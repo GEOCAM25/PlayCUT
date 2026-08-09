@@ -1255,6 +1255,7 @@ function openAdjustSheet(clip, track) {
   set('#adj-vignette', clip.vignette ?? 0);
   set('#adj-grain', clip.grain ?? 0);
   set('#adj-opacity', Math.round((clip.opacity ?? 1) * 100));
+  set('#adj-lens', clip.lens ?? 0);
 
   labelFor('#adj-volume').style.display = hasVolume ? '' : 'none';
   showLabels('only-audio', track === 'audio');
@@ -1288,6 +1289,8 @@ function openAdjustSheet(clip, track) {
   updateChromaUI();
   updateCurvesBtn();
   updateStabUI();
+  updateLensUI();
+  updateFocusUI();
   openSheet('sheet-adjust');
 }
 
@@ -1348,6 +1351,11 @@ function updateAdjustOutputs() {
   $('#out-vignette').textContent = $('#adj-vignette').value + '%';
   $('#out-grain').textContent = $('#adj-grain').value + '%';
   $('#out-opacity').textContent = $('#adj-opacity').value + '%';
+  $('#out-lens').textContent = $('#adj-lens').value;
+  $('#out-focusamt').textContent = $('#adj-focusamt').value + '%';
+  $('#out-focussize').textContent = $('#adj-focussize').value + '%';
+  $('#out-focusx').textContent = $('#adj-focusx').value + '%';
+  $('#out-focusy').textContent = $('#adj-focusy').value + '%';
   $('#out-animindur').textContent = (+$('#adj-animindur').value).toFixed(1) + 's';
   $('#out-animoutdur').textContent = (+$('#adj-animoutdur').value).toFixed(1) + 's';
 }
@@ -1453,6 +1461,37 @@ function bindAdjust() {
     if (b.dataset.motion !== 'none') previewClipEntero('Movimiento');
     else stopLivePreview();
   });
+  $('#lens-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lens]'); if (!b || !adjustTarget) return;
+    pushHistory();
+    aplicarLente(+b.dataset.lens);
+  });
+  $('#adj-lens').addEventListener('input', () => aplicarLente(+$('#adj-lens').value));
+
+  $('#focus-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-focus]'); if (!b || !adjustTarget) return;
+    if (b.dataset.focus !== 'none' && !requirePro('focus')) return;
+    pushHistory();
+    const c = adjustTarget.clip;
+    if (b.dataset.focus === 'none') c.focus = null;
+    else {
+      c.focus = Object.assign({ amount: 50, size: 45, x: 50, y: 50 }, c.focus || {}, { mode: b.dataset.focus });
+    }
+    updateFocusUI(); engine.render(engine.playhead); timeline.requestRender(); scheduleSave(); haptic(10);
+  });
+  ['#adj-focusamt', '#adj-focussize', '#adj-focusx', '#adj-focusy'].forEach(sel => {
+    $(sel).addEventListener('input', () => {
+      const c = adjustTarget && adjustTarget.clip;
+      if (!c || !c.focus) return;
+      c.focus.amount = +$('#adj-focusamt').value;
+      c.focus.size = +$('#adj-focussize').value;
+      c.focus.x = +$('#adj-focusx').value;
+      c.focus.y = +$('#adj-focusy').value;
+      updateAdjustOutputs();
+      engine.render(engine.playhead); scheduleSave();
+    });
+  });
+
   $('#flip-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-flip]'); if (!b || !adjustTarget) return;
     const c = adjustTarget.clip;
@@ -1626,6 +1665,42 @@ function pickChromaColor(e) {
     invalidateChroma(adjustTarget.clip); updateChromaUI(); engine.render(engine.playhead); scheduleSave();
   }
   stopChromaPick(); haptic(12); toast('Color capturado: ' + hex);
+}
+
+// ---------- Corrección de lente y desenfoque selectivo ----------
+function aplicarLente(v) {
+  const c = adjustTarget && adjustTarget.clip;
+  if (!c) return;
+  c.lens = Math.max(-100, Math.min(100, Math.round(v)));
+  $('#adj-lens').value = c.lens;
+  engine.invalidateLens(c.id);
+  updateLensUI();
+  engine.render(engine.playhead); timeline.requestRender(); scheduleSave();
+}
+
+function updateLensUI() {
+  const c = adjustTarget && adjustTarget.clip;
+  const v = c ? (c.lens || 0) : 0;
+  $('#adj-lens').value = v;
+  $('#out-lens').textContent = v;
+  setActive('#lens-row', 'lens', String(v));
+}
+
+function updateFocusUI() {
+  const c = adjustTarget && adjustTarget.clip;
+  const visual = adjustTarget && (adjustTarget.track === 'video' || adjustTarget.track === 'overlay');
+  const f = c && c.focus;
+  const modo = f && f.mode ? f.mode : 'none';
+  setActive('#focus-row', 'focus', modo);
+  // Estos controles llevan también `only-visual`: no deben reaparecer en audio.
+  $$('.only-focus').forEach(el => el.style.display = (visual && modo !== 'none') ? '' : 'none');
+  if (f) {
+    $('#adj-focusamt').value = f.amount ?? 50;
+    $('#adj-focussize').value = f.size ?? 45;
+    $('#adj-focusx').value = f.x ?? 50;
+    $('#adj-focusy').value = f.y ?? 50;
+  }
+  updateAdjustOutputs();
 }
 
 // ---------- Subtítulos por lotes ----------

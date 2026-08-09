@@ -27,6 +27,10 @@ export class Engine {
     this._curveScratch = document.createElement('canvas'); // curvas sobre video
     this._curveCache = new Map();  // imágenes ya graduadas (clipId -> {key, canvas})
     this._curveLUTs = new Map();   // tablas 256 por clip (clipId -> {key, t})
+    this._lensScratch = document.createElement('canvas'); // lente sobre video
+    this._lensCache = new Map();   // fotos ya corregidas (clipId -> {key, canvas})
+    this._lensMaps = new Map();    // tabla de remapeo (clave -> Int32Array)
+    this._focusScratch = document.createElement('canvas'); // desenfoque selectivo
   }
 
   setProject(project) {
@@ -86,6 +90,7 @@ export class Engine {
         this._chromaCache.delete(id);
         this._curveCache.delete(id);
         this._curveLUTs.delete(id);
+        this._lensCache.delete(id);
         this.elements.delete(id);
       }
     }
@@ -176,6 +181,10 @@ export class Engine {
     if (vs) {
       if (vs.b) this.drawTransition(vs);
       else this.drawClip(vs.a, vs.localA, {});
+      // Desenfoque selectivo del clip base, antes de viñeta/grano y de todo lo
+      // que va encima (la superposición y el texto se quedan nítidos).
+      const foco = vs.a.focus;
+      if (foco && foco.mode && foco.mode !== 'none' && (foco.amount || 0) > 0) this._applyFocus(foco);
       // Viñeta del clip base (oscurece las esquinas), bajo la superposición y el texto.
       const vAmt = vs.b ? Math.max(vs.a.vignette || 0, vs.b.vignette || 0) : (vs.a.vignette || 0);
       if (vAmt) this._drawVignette(vAmt / 100);
@@ -411,6 +420,12 @@ export class Engine {
       if (graded) { dsrc = graded; dsw = graded.width; dsh = graded.height; }
     }
 
+    // Corrección de lente: endereza el abombado del gran angular (o lo añade).
+    if (clip.lens) {
+      const recto = this._lensProcess(clip, dsrc, dsw, dsh, rec.type === 'image');
+      if (recto) { dsrc = recto; dsw = recto.width; dsh = recto.height; }
+    }
+
     // Recorte manual: nos quedamos solo con una parte de la imagen original.
     // Se guarda en fracciones (0..1) para que valga a cualquier resolución.
     let srcRect = null;
@@ -637,6 +652,115 @@ export class Engine {
   invalidateCurves(clipId) {
     this._curveCache.delete(clipId);
     this._curveLUTs.delete(clipId);
+  }
+
+  invalidateLens(clipId) { this._lensCache.delete(clipId); }
+
+  // Tabla de remapeo de la lente: para cada píxel de salida, de qué píxel de
+  // origen se toma el color. Se calcula UNA vez por tamaño e intensidad; luego
+  // cada fotograma es solo copiar por índice, que es rapidísimo.
+  _lensMap(w, h, k) {
+    const clave = `${w}x${h}|${k.toFixed(3)}`;
+    const hecho = this._lensMaps.get(clave);
+    if (hecho) return hecho;
+    const map = new Int32Array(w * h);
+    const cx = (w - 1) / 2, cy = (h - 1) / 2;
+    const diag = Math.sqrt(cx * cx + cy * cy) || 1;
+    const den = 1 + k;
+    let i = 0;
+    for (let y = 0; y < h; y++) {
+      const dy = (y - cy) / diag;
+      for (let x = 0; x < w; x++, i++) {
+        const dx = (x - cx) / diag;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        // r_src = r · (1 + k·r²) / (1 + k). En r = 1 vale 1 con cualquier k,
+        // así que la esquina siempre cae en la esquina y no se abre un hueco.
+        const f = r > 1e-6 ? ((1 + k * r * r) / den) : 1;
+        let sx = Math.round(cx + dx * diag * f);
+        let sy = Math.round(cy + dy * diag * f);
+        if (sx < 0) sx = 0; else if (sx >= w) sx = w - 1;
+        if (sy < 0) sy = 0; else if (sy >= h) sy = h - 1;
+        map[i] = (sy * w + sx) * 4;
+      }
+    }
+    if (this._lensMaps.size > 8) this._lensMaps.clear(); // no acumules tablas
+    this._lensMaps.set(clave, map);
+    return map;
+  }
+
+  _lensProcess(clip, src, sw, sh, isImage) {
+    const k = (clip.lens / 100) * 0.6;
+    const key = `${clip.lens}|${sw}x${sh}`;
+    if (isImage) {
+      const c = this._lensCache.get(clip.id);
+      if (c && c.key === key) return c.canvas;
+    }
+    const long = Math.max(sw, sh);
+    const cap = isImage ? 1600 : (this._exporting ? 1440 : 720);
+    const escala = Math.min(1, cap / long);
+    const w = Math.max(2, Math.round(sw * escala)), h = Math.max(2, Math.round(sh * escala));
+    const canvas = isImage ? document.createElement('canvas') : this._lensScratch;
+    canvas.width = w; canvas.height = h;
+    const cx = canvas.getContext('2d', { willReadFrequently: true });
+    cx.clearRect(0, 0, w, h);
+    cx.drawImage(src, 0, 0, w, h);
+    let img;
+    try { img = cx.getImageData(0, 0, w, h); } catch { return null; }
+    const d = img.data;
+    const orig = new Uint8ClampedArray(d);
+    const map = this._lensMap(w, h, k);
+    for (let i = 0, p = 0; i < map.length; i++, p += 4) {
+      const q = map[i];
+      d[p] = orig[q]; d[p + 1] = orig[q + 1]; d[p + 2] = orig[q + 2]; d[p + 3] = orig[q + 3];
+    }
+    cx.putImageData(img, 0, 0);
+    if (isImage) this._lensCache.set(clip.id, { key, canvas });
+    return canvas;
+  }
+
+  // Desenfoque selectivo: deja nítida una zona y difumina el resto. Se hace
+  // con una copia borrosa a la que se le «borra» la zona enfocada mediante un
+  // degradado, así el original nítido asoma justo ahí.
+  _applyFocus(f) {
+    const W = this.canvas.width, H = this.canvas.height;
+    const off = this._focusScratch;
+    if (off.width !== W || off.height !== H) { off.width = W; off.height = H; }
+    const octx = off.getContext('2d');
+    const px = Math.max(1, (f.amount / 100) * Math.min(W, H) * 0.06);
+    octx.setTransform(1, 0, 0, 1, 0, 0);
+    octx.globalCompositeOperation = 'source-over';
+    octx.clearRect(0, 0, W, H);
+    octx.filter = `blur(${px.toFixed(1)}px)`;
+    octx.drawImage(this.canvas, 0, 0);
+    octx.filter = 'none';
+
+    const cx = (f.x ?? 50) / 100 * W, cy = (f.y ?? 50) / 100 * H;
+    const tam = Math.max(0.04, (f.size ?? 45) / 100);
+    let grad;
+    if (f.mode === 'band') {
+      // Franja horizontal nítida (efecto maqueta / tilt-shift).
+      const mitad = tam * H * 0.5, suave = mitad * 0.9;
+      grad = octx.createLinearGradient(0, cy - mitad - suave, 0, cy + mitad + suave);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(Math.max(0.001, suave / (2 * (mitad + suave))), 'rgba(0,0,0,1)');
+      grad.addColorStop(Math.min(0.999, 1 - suave / (2 * (mitad + suave))), 'rgba(0,0,0,1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+    } else {
+      const radio = tam * Math.max(W, H) * 0.75;
+      grad = octx.createRadialGradient(cx, cy, radio * 0.45, cx, cy, radio);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    octx.globalCompositeOperation = 'destination-out';
+    octx.fillStyle = grad;
+    octx.fillRect(0, 0, W, H);
+    octx.globalCompositeOperation = 'source-over';
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(off, 0, 0);
+    ctx.restore();
   }
 
   _drawFit(src, sw, sh, cover, scale, tx, ty, rot, opts) {

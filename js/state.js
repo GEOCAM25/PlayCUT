@@ -64,6 +64,8 @@ export function createVideoClip({ mediaId, type, duration, width, height }) {
     temp: 0, hue: 0, vignette: 0, grain: 0, // temperatura, tono, viñeta, grano (0..100)
     curves: null,        // curvas de color (PRO): null = sin tocar
     stab: null,          // estabilización (PRO): datos del análisis del temblor
+    lens: 0,             // corrección de lente (−100 añade ojo de pez, +100 lo corrige)
+    focus: null,         // desenfoque selectivo (PRO): {mode,amount,size,x,y}
     // animación de entrada/salida del clip
     animIn: 'none', animOut: 'none', animInDur: 0.5, animOutDur: 0.5,
     // espejo
@@ -98,7 +100,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
     srcWidth: width, srcHeight: height, srcDuration: dur,
     volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     brightness: 1, contrast: 1, saturation: 1, opacity: 1, filter: 'none',
-    filterAmt: 1, temp: 0, hue: 0, vignette: 0, grain: 0, curves: null, stab: null,
+    filterAmt: 1, temp: 0, hue: 0, vignette: 0, grain: 0, curves: null, stab: null, lens: 0, focus: null,
     animIn: 'none', animOut: 'none', animInDur: 0.5, animOutDur: 0.5,
     flipH: false, flipV: false,
     crop: { x: 0, y: 0, w: 1, h: 1 },
@@ -171,6 +173,8 @@ export function normalizeProject(p) {
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0; c.grain = c.grain ?? 0;
     c.curves = c.curves || null;
     c.stab = c.stab || null;
+    c.lens = c.lens ?? 0;
+    c.focus = c.focus || null;
     c.animIn = c.animIn || 'none'; c.animOut = c.animOut || 'none';
     c.animInDur = c.animInDur ?? 0.5; c.animOutDur = c.animOutDur ?? 0.5;
     c.flipH = c.flipH ?? false; c.flipV = c.flipV ?? false;
@@ -191,6 +195,8 @@ export function normalizeProject(p) {
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0; c.grain = c.grain ?? 0;
     c.curves = c.curves || null;
     c.stab = c.stab || null;
+    c.lens = c.lens ?? 0;
+    c.focus = c.focus || null;
     c.animIn = c.animIn || 'none'; c.animOut = c.animOut || 'none';
     c.animInDur = c.animInDur ?? 0.5; c.animOutDur = c.animOutDur ?? 0.5;
     c.flipH = c.flipH ?? false; c.flipV = c.flipV ?? false;

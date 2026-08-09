@@ -394,6 +394,32 @@
           <input id="adj-stab" type="range" min="0" max="100" value="100" /></label>
         <p class="export-meta only-video" id="stab-hint">Analiza el movimiento de la cámara y compensa el temblor. Amplía un poco la imagen para tapar los bordes.</p>
 
+        <p class="sheet-sub only-visual">Corrección de lente</p>
+        <div class="opt-chips only-visual" id="lens-row">
+          <button class="chip" data-lens="0">Ninguna</button>
+          <button class="chip" data-lens="35">Enderezar</button>
+          <button class="chip" data-lens="70">Gran angular</button>
+          <button class="chip" data-lens="-45">Ojo de pez</button>
+        </div>
+        <label class="only-visual">Curvatura <output id="out-lens">0</output>
+          <input id="adj-lens" type="range" min="-100" max="100" value="0" /></label>
+        <p class="export-meta only-visual">A la derecha endereza el abombado del gran angular (GoPro, cámara frontal). A la izquierda lo añade a propósito.</p>
+
+        <p class="sheet-sub only-visual">Desenfoque selectivo <span class="badge-pro">PRO</span></p>
+        <div class="opt-chips only-visual" id="focus-row" data-pro="focus">
+          <button class="chip" data-focus="none">Ninguno</button>
+          <button class="chip" data-focus="radial">Redondo</button>
+          <button class="chip" data-focus="band">Franja (maqueta)</button>
+        </div>
+        <label class="only-visual only-focus">Cuánto desenfoque <output id="out-focusamt">50%</output>
+          <input id="adj-focusamt" type="range" min="0" max="100" value="50" /></label>
+        <label class="only-visual only-focus">Tamaño de la zona nítida <output id="out-focussize">45%</output>
+          <input id="adj-focussize" type="range" min="8" max="95" value="45" /></label>
+        <label class="only-visual only-focus">Posición ← → <output id="out-focusx">50%</output>
+          <input id="adj-focusx" type="range" min="0" max="100" value="50" /></label>
+        <label class="only-visual only-focus">Posición ↑ ↓ <output id="out-focusy">50%</output>
+          <input id="adj-focusy" type="range" min="0" max="100" value="50" /></label>
+
         <p class="sheet-sub only-visual">Curvas de color <span class="badge-pro">PRO</span></p>
         <div class="opt-grid two only-visual">
           <button class="opt" id="btn-open-curves" data-pro="colorcurves"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-curve"/></svg></span><span id="curves-state">Abrir curvas</span></button>

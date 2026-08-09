@@ -479,6 +479,7 @@ function bindToolbar() {
       case 'voice': openVoiceSheet(); break;
       case 'add-text': addTextAtPlayhead(false); break;
       case 'subs': openSubsSheet(); break;
+      case 'template': openTemplatesSheet(); break;
       case 'add-sticker': openStickerSheet(); break;
       case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
@@ -1713,6 +1714,142 @@ function updateFocusUI() {
     $('#adj-focusy').value = f.y ?? 50;
   }
   updateAdjustOutputs();
+}
+
+// ---------- Plantillas de proyecto ----------
+// Cada plantilla monta el video de una vez: tarjeta de entrada con título,
+// acabado de color en todos los clips, transiciones y cierre con llamada a la
+// acción. Se aplica sobre lo que ya hay y se puede deshacer entero.
+const PROJECT_TEMPLATES = [
+  {
+    id: 'reel', nombre: 'Reel para redes', color: '#0d0d16',
+    desc: 'Colores vivos, zoom lento, cortes rápidos y un cierre de «Sígueme». Para TikTok, Reels y Shorts.',
+    ratio: '9:16',
+    clip: { filter: 'vivid', motion: 'zoomIn', animIn: 'pop', animInDur: 0.35, temp: 8, vignette: 14 },
+    transition: { type: 'whip', duration: 0.35 },
+    fade: [0.15, 0.5],
+    intro: { texto: 'TU TÍTULO', dur: 1.6, color: '#0d0d16', estilo: { y: 0.5, size: 128, font: 'display', bg: 'none', stroke: true, color: '#ffffff', animIn: 'pop', animOut: 'fade' } },
+    outro: { texto: 'Sígueme para más', dur: 1.8, color: '#0d0d16', estilo: { y: 0.5, size: 92, font: 'round', bold: true, bg: 'none', stroke: false, shadow: true, color: '#ffffff', animIn: 'zoom', animOut: 'fade' } },
+  },
+  {
+    id: 'cine', nombre: 'Corto de cine', color: '#141018',
+    desc: 'Tono frío, viñeta y grano, fundidos largos y rótulos sobrios. Formato panorámico.',
+    ratio: '16:9',
+    clip: { filter: 'cine', motion: 'panR', animIn: 'fade', animInDur: 0.8, temp: -8, vignette: 40, grain: 22 },
+    transition: { type: 'dissolve', duration: 0.9 },
+    fade: [1, 1.4],
+    intro: { texto: 'UN CORTO DE\nTU NOMBRE', dur: 2.6, color: '#000000', estilo: { y: 0.5, size: 74, font: 'classic', bg: 'none', stroke: false, color: '#e8e2d4', letterSpacing: 6, animIn: 'fade', animOut: 'fade' } },
+    outro: { texto: 'FIN', dur: 2.2, color: '#000000', estilo: { y: 0.5, size: 96, font: 'classic', bg: 'none', stroke: false, color: '#e8e2d4', letterSpacing: 10, animIn: 'fade', animOut: 'fade' } },
+  },
+  {
+    id: 'tutorial', nombre: 'Tutorial paso a paso', color: '#12202e',
+    desc: 'Imagen nítida y limpia, cortes en negro entre pasos y un cartel de título. Ideal para explicar algo.',
+    ratio: '9:16',
+    clip: { filter: 'sharp', motion: 'none', animIn: 'fade', animInDur: 0.25, temp: 4, vignette: 0 },
+    transition: { type: 'fadeblack', duration: 0.35 },
+    fade: [0.25, 0.6],
+    intro: { texto: 'Cómo hacerlo\npaso a paso', dur: 2.2, color: '#12202e', estilo: { y: 0.5, size: 84, font: 'round', bold: true, bg: 'none', stroke: false, shadow: true, color: '#ffffff', animIn: 'slideup', animOut: 'fade' } },
+    outro: { texto: '¿Te sirvió?\nGuárdalo', dur: 2, color: '#12202e', estilo: { y: 0.5, size: 80, font: 'round', bold: true, bg: 'none', stroke: false, shadow: true, color: '#ffffff', animIn: 'pop', animOut: 'fade' } },
+  },
+  {
+    id: 'recuerdo', nombre: 'Recuerdo / viaje', color: '#2a1c14',
+    desc: 'Tono cálido de foto antigua, movimiento suave tipo álbum y cierre con la fecha.',
+    ratio: '9:16',
+    clip: { filter: 'vintage', motion: 'panUL', animIn: 'fade', animInDur: 0.6, temp: 22, vignette: 26, grain: 14 },
+    transition: { type: 'dissolve', duration: 0.7 },
+    fade: [0.6, 1],
+    intro: { texto: 'Nuestro viaje', dur: 2.2, color: '#2a1c14', estilo: { y: 0.5, size: 88, font: 'script', bg: 'none', stroke: false, shadow: true, color: '#ffe9c9', animIn: 'fade', animOut: 'fade' } },
+    outro: { texto: 'Hasta la próxima', dur: 2.2, color: '#2a1c14', estilo: { y: 0.5, size: 76, font: 'script', bg: 'none', stroke: false, shadow: true, color: '#ffe9c9', animIn: 'fade', animOut: 'fade' } },
+  },
+  {
+    id: 'promo', nombre: 'Promoción / producto', color: '#3b0f3a',
+    desc: 'Color potente, zoom rápido, transiciones con brillo y un cierre con llamada a la acción.',
+    ratio: '9:16',
+    clip: { filter: 'candy', motion: 'zoomInFast', animIn: 'zoom', animInDur: 0.3, temp: 6, vignette: 10 },
+    transition: { type: 'iris', duration: 0.45 },
+    fade: [0.15, 0.4],
+    intro: { texto: 'NOVEDAD', dur: 1.4, color: '#3b0f3a', estilo: { y: 0.5, size: 132, font: 'display', bg: 'none', stroke: true, color: '#ffd23b', letterSpacing: 4, animIn: 'pop', animOut: 'fade' } },
+    outro: { texto: 'Pídelo ya', dur: 1.8, color: '#3b0f3a', estilo: { y: 0.5, size: 104, font: 'display', bg: 'none', stroke: true, color: '#ffd23b', animIn: 'pop', animOut: 'fade' } },
+  },
+];
+
+function openTemplatesSheet() {
+  if (!project.tracks.video.length) { toast('Añade antes algún video o foto'); return; }
+  const lista = $('#tpl-list');
+  if (!lista.childElementCount) {
+    lista.innerHTML = PROJECT_TEMPLATES.map(t => `
+      <li><button class="tpl-item" data-tpl="${t.id}">
+        <span class="tpl-swatch" style="background:${t.color}"></span>
+        <span class="tpl-body"><b>${escapeHtml(t.nombre)}</b><span>${escapeHtml(t.desc)}</span></span>
+      </button></li>`).join('');
+  }
+  openSheet('sheet-templates');
+}
+
+async function applyTemplate(id) {
+  const t = PROJECT_TEMPLATES.find(x => x.id === id);
+  if (!t || !project.tracks.video.length) return;
+  try {
+    busy('Montando la plantilla…');
+    pushHistory();
+
+    // 1. Formato y fundidos del proyecto.
+    if (RATIOS[t.ratio]) {
+      const [w, h] = RATIOS[t.ratio];
+      project.ratio = t.ratio; project.width = w; project.height = h;
+    }
+    project.fadeIn = t.fade[0]; project.fadeOut = t.fade[1];
+
+    // 2. Acabado y transiciones de los clips que ya hay (los bloqueados no).
+    project.tracks.video.forEach((c, i) => {
+      if (c.locked) return;
+      Object.assign(c, t.clip);
+      if (i > 0) c.transition = { ...t.transition };
+    });
+    for (const c of project.tracks.overlay) if (!c.locked) Object.assign(c, { filter: t.clip.filter, animIn: t.clip.animIn });
+
+    // 3. Tarjeta de entrada: se mete delante y TODO lo demás se desplaza.
+    const dIn = t.intro.dur;
+    const intro = await makeColorClip(t.intro.color, dIn, 'Intro');
+    intro.transition = { type: 'none', duration: 0.6 };
+    project.tracks.video.unshift(intro);
+    // El primer clip real ya no necesita transición (no hay nada antes... salvo la intro).
+    if (project.tracks.video[1]) project.tracks.video[1].transition = { ...t.transition };
+    for (const c of project.tracks.overlay) c.start += dIn;
+    for (const c of project.tracks.audio) c.start += dIn;
+    for (const c of project.tracks.text) { c.start += dIn; c.end += dIn; }
+
+    const tituloIn = createTextClip({ text: t.intro.texto, start: 0, end: dIn });
+    Object.assign(tituloIn, JSON.parse(JSON.stringify(t.intro.estilo)));
+    tituloIn.start = 0; tituloIn.end = dIn;
+    project.tracks.text.push(tituloIn);
+
+    // 4. Tarjeta de cierre al final de todo.
+    const outro = await makeColorClip(t.outro.color, t.outro.dur, 'Cierre');
+    outro.transition = { ...t.transition };
+    project.tracks.video.push(outro);
+    const inicioOutro = projectDuration(project) - t.outro.dur;
+    const tituloOut = createTextClip({ text: t.outro.texto, start: inicioOutro, end: inicioOutro + t.outro.dur });
+    Object.assign(tituloOut, JSON.parse(JSON.stringify(t.outro.estilo)));
+    tituloOut.start = inicioOutro; tituloOut.end = inicioOutro + t.outro.dur;
+    project.tracks.text.push(tituloOut);
+
+    busyDone();
+    engine.applyRatio(); fitPreview(); refresh(); pushHistory(); closeSheets();
+    engine.seek(0); timeline.setPlayhead(0); updateTimeUI(0);
+    haptic([14, 40, 14]);
+    toast(`Plantilla «${t.nombre}» aplicada — toca los títulos para cambiarlos`);
+  } catch (e) {
+    busyDone(); console.error(e);
+    toast('No se pudo aplicar la plantilla: ' + (e.message || ''));
+  }
+}
+
+function bindTemplates() {
+  $('#tpl-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tpl]'); if (!b) return;
+    applyTemplate(b.dataset.tpl);
+  });
 }
 
 // ---------- Subtítulos por lotes ----------
@@ -3021,7 +3158,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs(); bindTemplates();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();

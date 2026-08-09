@@ -899,6 +899,20 @@ body.tut-open { overflow: hidden; }
   .project-name-input { font-size: 14px; }
 }
 
+/* ---------- Lista de plantillas ---------- */
+.tpl-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tpl-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 12px 14px; color: var(--text);
+  transition: transform var(--t-fast) var(--spring), background var(--t-med) var(--ease), border-color var(--t-med) var(--ease);
+}
+.tpl-item:active { transform: scale(.985); background: var(--bg-4); border-color: var(--line-strong); }
+.tpl-swatch { flex: 0 0 auto; width: 40px; height: 54px; border-radius: 9px; border: 1px solid var(--line-strong); }
+.tpl-body { min-width: 0; }
+.tpl-body b { display: block; font-size: 14.5px; font-weight: 650; margin-bottom: 3px; }
+.tpl-body span { display: block; font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
+
 /* ---------- Aviso de vista previa en bucle ---------- */
 .live-badge {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);

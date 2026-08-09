@@ -899,6 +899,18 @@ body.tut-open { overflow: hidden; }
   .project-name-input { font-size: 14px; }
 }
 
+/* ---------- Aviso de vista previa en bucle ---------- */
+.live-badge {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  z-index: 7; pointer-events: none;
+  background: rgba(10,10,16,.82); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill);
+  padding: 5px 12px; font-size: 11.5px; font-weight: 600; letter-spacing: .2px;
+  box-shadow: var(--sh-2); backdrop-filter: blur(8px);
+  animation: livePulse 1.8s var(--ease) infinite;
+}
+@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
+
 /* ---------- Editor de curvas de color ---------- */
 .curve-wrap {
   width: 100%; max-width: 340px; margin: 4px auto 10px;

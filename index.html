@@ -30,6 +30,7 @@
     <symbol id="ic-marker" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
     <symbol id="ic-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9.5 4V3h5v1"/><path d="M9 11h6M9 15h4"/></symbol>
     <symbol id="ic-adjust" viewBox="0 0 24 24"><path d="M5 21v-7M5 10V3M12 21v-11M12 6V3M19 21v-4M19 13V3"/><path d="M2.5 14h5M9.5 6h5M16.5 17h5"/></symbol>
+    <symbol id="ic-subs" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 11h5M13.5 11H18M6 15h8M16 15h2"/></symbol>
     <symbol id="ic-stab" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7.5 12h9"/><path d="M12 9.2v5.6"/><path d="M2 9v6M22 9v6"/></symbol>
     <symbol id="ic-curve" viewBox="0 0 24 24"><path d="M3.5 20.5h17M3.5 20.5V3.5"/><path d="M4 20C9 20 8 5 20 4"/><circle cx="9" cy="15.6" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="7.2" r="1.6" fill="currentColor" stroke="none"/></symbol>
     <symbol id="ic-volume" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.7 6.2a8 8 0 0 1 0 11.6"/></symbol>
@@ -109,6 +110,7 @@
     <div class="preview-wrap">
       <canvas id="preview" width="1080" height="1920"></canvas>
       <canvas id="histogram" class="histogram" width="256" height="90" hidden></canvas>
+      <div id="live-badge" class="live-badge" hidden>🔁 Vista previa</div>
       <div id="preview-empty" class="preview-empty">
         <div class="empty-cta">
           <span class="empty-plus">＋</span>
@@ -147,6 +149,7 @@
       <button class="tool" data-action="add-media"><i><svg class="ic" aria-hidden="true"><use href="#ic-media"/></svg></i><span>Añadir</span></button>
       <button class="tool" data-action="add-overlay"><i><svg class="ic" aria-hidden="true"><use href="#ic-overlay"/></svg></i><span>Superponer</span></button>
       <button class="tool" data-action="add-text"><i><svg class="ic" aria-hidden="true"><use href="#ic-text"/></svg></i><span>Texto</span></button>
+      <button class="tool" data-action="subs"><i><svg class="ic" aria-hidden="true"><use href="#ic-subs"/></svg></i><span>Subtítulos</span></button>
       <button class="tool" data-action="add-sticker"><i><svg class="ic" aria-hidden="true"><use href="#ic-sticker"/></svg></i><span>Sticker</span></button>
       <button class="tool" data-action="add-gif"><i><svg class="ic" aria-hidden="true"><use href="#ic-gif"/></svg></i><span>GIF</span></button>
       <button class="tool" data-action="add-audio"><i><svg class="ic" aria-hidden="true"><use href="#ic-audio"/></svg></i><span>Audio</span></button>
@@ -632,6 +635,10 @@
         <label>Espaciado entre letras <output id="out-textls">0</output>
           <input id="text-ls" type="range" min="0" max="40" value="0" /></label>
       </div>
+      <div class="opt-grid two">
+        <button class="opt" id="text-style-all"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-subs"/></svg></span>Este estilo a todos</button>
+        <button class="opt" id="text-open-subs"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg></span>Crear varios</button>
+      </div>
       <div class="sheet-buttons">
         <button class="ghost-btn" id="text-delete">Borrar</button>
         <button class="primary-btn" data-close-sheet>Listo</button>
@@ -749,6 +756,12 @@
       <p class="sheet-sub">Fundido de salida del video <output id="out-projfadeout">0.0s</output></p>
       <input id="set-projfadeout" type="range" min="0" max="3" step="0.1" value="0" />
       <p class="export-meta">Aparece desde negro al empezar y se va a negro al terminar (también baja el audio).</p>
+      <p class="sheet-sub">Vista previa automática</p>
+      <div class="opt-grid two">
+        <button class="opt" id="btn-autopreview"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-play"/></svg></span><span id="autopreview-label">Activada</span></button>
+        <button class="opt" id="btn-replay"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-redo"/></svg></span>Repetir última</button>
+      </div>
+      <p class="export-meta">Al elegir una transición, una animación o un movimiento, se reproduce solo ese trocito en bucle para que lo veas al momento.</p>
       <p class="sheet-sub">Duración del fotograma congelado <output id="out-freezedur">2.0s</output></p>
       <input id="set-freezedur" type="range" min="0.3" max="10" step="0.1" value="2" />
       <p class="export-meta">Es la duración que tendrá cada «🧊 Congelar». Después puedes cambiarla clip a clip.</p>
@@ -806,6 +819,37 @@
   <div id="sheet-backdrop" class="sheet-backdrop"></div>
 
   <!-- Superposición de trabajo en curso (importar, convertir, congelar…) -->
+  <!-- ===================== HOJA: SUBTÍTULOS POR LOTES ===================== -->
+  <div id="sheet-subs" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Subtítulos</h3>
+      <p class="sheet-sub">Escribe una línea por subtítulo</p>
+      <textarea id="subs-text" class="text-area" rows="6" placeholder="Hola, bienvenido a mi canal&#10;Hoy te enseño cómo editar&#10;Sígueme para más"></textarea>
+
+      <p class="sheet-sub">Estilo</p>
+      <div class="opt-chips" id="subs-style">
+        <button class="chip active" data-substyle="subtitle">Subtítulo</button>
+        <button class="chip" data-substyle="caption">Cartel</button>
+        <button class="chip" data-substyle="neon">Neón</button>
+        <button class="chip" data-substyle="glow">Brillo</button>
+        <button class="chip" data-substyle="retro">Retro</button>
+        <button class="chip" data-substyle="meme">Meme</button>
+      </div>
+
+      <p class="sheet-sub">Cuánto dura cada uno</p>
+      <div class="opt-chips" id="subs-mode">
+        <button class="chip active" data-submode="spread">Repartir en todo el video</button>
+        <button class="chip" data-submode="fixed">Tiempo fijo</button>
+      </div>
+      <label id="subs-dur-row" style="display:none">Segundos por subtítulo <output id="out-subsdur">2.5s</output>
+        <input id="subs-dur" type="range" min="0.6" max="8" step="0.1" value="2.5" /></label>
+
+      <p class="export-meta" id="subs-info">Se crearán a partir del cursor. Después puedes mover o editar cada uno por separado.</p>
+      <button class="primary-btn full" id="subs-create">Crear subtítulos</button>
+    </div>
+  </div>
+
   <!-- ===================== HOJA: CURVAS DE COLOR ===================== -->
   <div id="sheet-curves" class="sheet">
     <div class="sheet-inner">
@@ -839,7 +883,7 @@
         <button class="opt" id="curve-all"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-overlay"/></svg></span>A todo</button>
       </div>
 
-      <button class="btn-primary" data-close-sheet>Listo</button>
+      <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>
   </div>
 

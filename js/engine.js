@@ -913,6 +913,21 @@ export class Engine {
     for (const rec of this.elements.values()) if (rec.el && !rec.el.paused) rec.el.pause();
   }
 
+  // Reproduce un tramo en bucle: es lo que deja VER un efecto mientras lo
+  // eliges (una transición, una animación de entrada…) sin tener que buscar
+  // el momento a mano y darle a reproducir cada vez.
+  loopRange(from, to) {
+    const a = Math.max(0, Math.min(from, this.duration));
+    const b = Math.max(a + 0.15, Math.min(to, this.duration));
+    this.loopFrom = a; this.loopTo = b;
+    this.pause();
+    this.seek(a);
+    this.playhead = a;
+    this.play();
+  }
+
+  clearLoop() { this.loopFrom = this.loopTo = null; }
+
   tick() {
     if (!this.playing) return;
     const now = performance.now();
@@ -924,6 +939,17 @@ export class Engine {
     if (lead != null && t > lead + 0.05 * prate) {
       t = Math.max(this.playhead, lead + 0.05 * prate); // monótono: nunca retrocede
       this.startPerf = now; this.startPlayhead = t; // reancla el reloj de pared
+    }
+    // Bucle de vista previa: al llegar al final del tramo, vuelve al principio.
+    if (this.loopTo != null && t >= this.loopTo) {
+      const a = this.loopFrom || 0;
+      this.playhead = a;
+      this.seek(a);
+      this.startPerf = now; this.startPlayhead = a;
+      this.syncPlayback(a); this.render(a);
+      this.onTick && this.onTick(a, false);
+      this._raf = requestAnimationFrame(() => this.tick());
+      return;
     }
     if (t >= this.duration) {
       this.playhead = this.duration;

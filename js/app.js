@@ -378,6 +378,7 @@ function setPlayIcon(playing) {
   els.btnPlay.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
 }
 function togglePlay() {
+  stopLivePreview(); // tocar reproducir manda: se sale del bucle de vista previa
   if (engine.playing) { engine.pause(); setPlayIcon(false); }
   else { if (projectDuration(project) <= 0) { toast('Añade contenido primero'); return; } engine.play(); setPlayIcon(true); }
 }
@@ -477,6 +478,7 @@ function bindToolbar() {
       case 'add-audio': els.fileAudio.click(); break;
       case 'voice': openVoiceSheet(); break;
       case 'add-text': addTextAtPlayhead(false); break;
+      case 'subs': openSubsSheet(); break;
       case 'add-sticker': openStickerSheet(); break;
       case 'add-gif': openGifSheet(); break;
       case 'ratio': openRatioSheet(); break;
@@ -1072,18 +1074,109 @@ function onClipSelected(clip) {
 }
 
 // ==================================================================
+//  VISTA PREVIA EN VIVO
+// ==================================================================
+// Al elegir una transición, una animación o un movimiento, no basta con
+// guardarlo: hay que VERLO. Esto reproduce en bucle el trocito justo donde
+// ocurre el efecto, sin tener que buscar el momento y darle a reproducir.
+function livePreviewOn() { return localStorage.getItem('playcut.autoPreview') !== '0'; }
+
+let livePreviewTimer = 0;
+let ultimoPreview = null;   // para «repetir última»
+function livePreview(from, to, texto, forzar) {
+  if (!project) return;
+  ultimoPreview = { a: from, b: to, texto };
+  if (!livePreviewOn() && !forzar) return;
+  clearTimeout(livePreviewTimer);
+  const total = projectDuration(project);
+  const a = Math.max(0, Math.min(from, total));
+  const b = Math.max(a + 0.2, Math.min(to, total));
+  const badge = $('#live-badge');
+  if (badge) { badge.textContent = '🔁 ' + (texto || 'Vista previa'); badge.hidden = false; }
+  // Un respiro antes de arrancar: si tocas varias opciones seguidas, solo se
+  // reproduce la última en vez de dar tirones con cada toque.
+  livePreviewTimer = setTimeout(() => {
+    engine.loopRange(a, b);
+    setPlayIcon(true);
+  }, 120);
+}
+
+function stopLivePreview() {
+  clearTimeout(livePreviewTimer);
+  const badge = $('#live-badge');
+  if (badge) badge.hidden = true;
+  if (engine.loopTo != null) {
+    engine.clearLoop();
+    engine.pause();
+    setPlayIcon(false);
+  } else {
+    engine.clearLoop();
+  }
+}
+
+// Tramos típicos que interesa ver de un clip.
+function rangoClip(clip, track) {
+  const inicio = track === 'video' ? videoClipStart(project.tracks.video, clip.id) : (clip.start || 0);
+  const dur = track === 'overlay' ? overlayDuration(clip) : clipDuration(clip);
+  return { inicio, fin: inicio + dur, dur };
+}
+
+// Muestra la animación de entrada o de salida del clip que estás editando.
+function previewAnimacion(cual) {
+  if (!adjustTarget) return;
+  const { clip, track } = adjustTarget;
+  const cuando = cual === 'in' ? (clip.animIn || 'none') : (clip.animOut || 'none');
+  if (cuando === 'none') { stopLivePreview(); return; }
+  const r = rangoClip(clip, track);
+  const d = Math.min(cual === 'in' ? (clip.animInDur ?? 0.5) : (clip.animOutDur ?? 0.5), r.dur / 2);
+  if (cual === 'in') livePreview(r.inicio, r.inicio + d + 0.45, 'Entrada');
+  else livePreview(r.fin - d - 0.45, r.fin, 'Salida');
+}
+
+// Muestra el clip entero (o sus primeros segundos si es largo).
+function previewClipEntero(texto) {
+  if (!adjustTarget) return;
+  const r = rangoClip(adjustTarget.clip, adjustTarget.track);
+  livePreview(r.inicio, Math.min(r.fin, r.inicio + 4), texto || 'Vista previa');
+}
+
+// ==================================================================
 //  HOJAS
 // ==================================================================
 function openSheet(id) {
   els.backdrop.classList.add('show'); $('#' + id).classList.add('show');
   screens.editor.classList.add('sheet-open');
   engine.render(engine.playhead); // reajusta el fotograma al nuevo tamaño
+  fitPreviewToSheet(id);
 }
 function closeSheets() {
+  stopLivePreview();
   els.backdrop.classList.remove('show');
   $$('.sheet').forEach(s => { s.classList.remove('show'); s.style.transform = ''; });
   screens.editor.classList.remove('sheet-open');
+  document.querySelector('.preview-wrap').style.removeProperty('height');
   fitPreview();
+}
+
+// Ajusta el alto de la vista previa al hueco que deja la hoja abierta, para
+// que el fotograma se vea ENTERO mientras tocas los controles.
+function fitPreviewToSheet(id) {
+  const wrap = document.querySelector('.preview-wrap');
+  const sheet = $('#' + id);
+  if (!wrap || !sheet) return;
+  if (getComputedStyle(screens.editor).display === 'grid') return; // escritorio: no hace falta
+  const aplicar = () => {
+    const arriba = wrap.getBoundingClientRect().top;
+    const hoja = sheet.getBoundingClientRect().top;
+    const hueco = Math.round(hoja - arriba - 10);
+    if (hueco > 90) {
+      wrap.style.setProperty('height', hueco + 'px', 'important');
+      wrap.style.setProperty('flex', '0 0 auto', 'important');
+      engine.render(engine.playhead);
+    }
+  };
+  requestAnimationFrame(aplicar);
+  setTimeout(aplicar, 320); // otra vez cuando termina la animación de subida
 }
 
 // Añade un botón ✕ (siempre visible) a cada hoja y cierra el teclado al tocar
@@ -1327,6 +1420,9 @@ function bindAdjust() {
     engine.applyGains(); engine.render(engine.playhead);
     timeline.requestRender(); updateDurationUI(); scheduleSave();
   };
+  // Cambiar la duración de una animación la vuelve a mostrar.
+  $('#adj-animindur').addEventListener('input', () => previewAnimacion('in'));
+  $('#adj-animoutdur').addEventListener('input', () => previewAnimacion('out'));
   ['#adj-volume', '#adj-fadein', '#adj-fadeout', '#adj-duration', '#adj-scale', '#adj-rotate',
    '#adj-brightness', '#adj-contrast', '#adj-saturation', '#adj-temp', '#adj-hue', '#adj-vignette', '#adj-grain', '#adj-opacity',
    '#adj-animindur', '#adj-animoutdur', '#adj-borderw']
@@ -1336,11 +1432,13 @@ function bindAdjust() {
     const b = e.target.closest('[data-animin]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.animIn = b.dataset.animin; setActive('#anim-in-row', 'animin', b.dataset.animin);
     engine.render(engine.playhead); scheduleSave();
+    previewAnimacion('in');
   });
   $('#anim-out-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-animout]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.animOut = b.dataset.animout; setActive('#anim-out-row', 'animout', b.dataset.animout);
     engine.render(engine.playhead); scheduleSave();
+    previewAnimacion('out');
   });
 
   $('#filters-row').addEventListener('click', (e) => {
@@ -1352,6 +1450,8 @@ function bindAdjust() {
     const b = e.target.closest('[data-motion]'); if (!b || !adjustTarget) return;
     adjustTarget.clip.motion = b.dataset.motion; setActive('#motion-row', 'motion', b.dataset.motion);
     engine.render(engine.playhead); scheduleSave();
+    if (b.dataset.motion !== 'none') previewClipEntero('Movimiento');
+    else stopLivePreview();
   });
   $('#flip-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-flip]'); if (!b || !adjustTarget) return;
@@ -1526,6 +1626,103 @@ function pickChromaColor(e) {
     invalidateChroma(adjustTarget.clip); updateChromaUI(); engine.render(engine.playhead); scheduleSave();
   }
   stopChromaPick(); haptic(12); toast('Color capturado: ' + hex);
+}
+
+// ---------- Subtítulos por lotes ----------
+// Escribes todas las frases de una vez y se convierten en textos repartidos
+// por el video. Mucho más rápido que crear uno a uno y colocarlo a mano.
+const SUB_STYLES = {
+  subtitle: { y: 0.86, size: 52, font: 'sans', bold: true, bg: 'black', stroke: false, shadow: false, letterSpacing: 0, color: '#ffffff', animIn: 'fade', animOut: 'fade' },
+  caption: { y: 0.2, size: 72, font: 'round', bold: true, bg: 'color', stroke: false, shadow: false, letterSpacing: 0, color: '#ffffff', animIn: 'slideup', animOut: 'fade' },
+  neon: { y: 0.8, size: 64, font: 'display', bold: false, bg: 'none', stroke: true, shadow: true, letterSpacing: 2, color: '#00e5ff', animIn: 'pop', animOut: 'fade' },
+  glow: { y: 0.82, size: 60, font: 'round', bold: true, bg: 'none', stroke: false, shadow: true, letterSpacing: 3, color: '#ffffff', animIn: 'fade', animOut: 'fade' },
+  retro: { y: 0.82, size: 58, font: 'classic', bold: false, bg: 'color', bgColor: '#7c3aed', stroke: false, shadow: false, letterSpacing: 2, color: '#ffd23b', animIn: 'slidedown', animOut: 'fade' },
+  meme: { y: 0.14, size: 78, font: 'display', bold: true, bg: 'none', stroke: true, shadow: false, letterSpacing: 0, color: '#ffffff', animIn: 'none', animOut: 'none' },
+};
+let subsStyle = 'subtitle';
+let subsMode = 'spread';
+
+function openSubsSheet() {
+  if (projectDuration(project) <= 0) { toast('Añade antes un video o una foto'); return; }
+  actualizarSubsInfo();
+  openSheet('sheet-subs');
+}
+
+function lineasSubs() {
+  return ($('#subs-text').value || '').split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+function actualizarSubsInfo() {
+  const n = lineasSubs().length;
+  const desde = engine.playhead;
+  const libre = Math.max(0, projectDuration(project) - desde);
+  if (!n) { $('#subs-info').textContent = 'Escribe una línea por subtítulo. Se crearán a partir del cursor.'; return; }
+  const cada = subsMode === 'spread' ? libre / n : (+$('#subs-dur').value);
+  const fin = desde + cada * n;
+  $('#subs-info').textContent = `${n} subtítulo${n > 1 ? 's' : ''} · ${cada.toFixed(1)}s cada uno · de ${formatTime(desde)} a ${formatTime(fin)}`
+    + (fin > projectDuration(project) + 0.05 ? ' (se saldrán del video)' : '');
+}
+
+function crearSubs() {
+  const lineas = lineasSubs();
+  if (!lineas.length) { toast('Escribe al menos una línea'); return; }
+  const desde = engine.playhead;
+  const libre = Math.max(0.5, projectDuration(project) - desde);
+  const cada = subsMode === 'spread' ? Math.max(0.4, libre / lineas.length) : (+$('#subs-dur').value);
+  const estilo = SUB_STYLES[subsStyle] || SUB_STYLES.subtitle;
+  pushHistory();
+  let t = desde;
+  let primero = null;
+  for (const linea of lineas) {
+    const clip = createTextClip({ text: linea, start: t, end: t + cada });
+    Object.assign(clip, JSON.parse(JSON.stringify(estilo)));
+    clip.start = t; clip.end = t + cada;
+    project.tracks.text.push(clip);
+    if (!primero) primero = clip;
+    t += cada;
+  }
+  refresh(); closeSheets();
+  if (primero) timeline.select(primero.id, 'text');
+  haptic([12, 30, 12]);
+  toast(`${lineas.length} subtítulo${lineas.length > 1 ? 's' : ''} creado${lineas.length > 1 ? 's' : ''}`);
+}
+
+function bindSubs() {
+  $('#subs-text').addEventListener('input', actualizarSubsInfo);
+  $('#subs-style').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-substyle]'); if (!b) return;
+    subsStyle = b.dataset.substyle;
+    setActive('#subs-style', 'substyle', subsStyle);
+    haptic(8);
+  });
+  $('#subs-mode').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-submode]'); if (!b) return;
+    subsMode = b.dataset.submode;
+    setActive('#subs-mode', 'submode', subsMode);
+    $('#subs-dur-row').style.display = subsMode === 'fixed' ? '' : 'none';
+    actualizarSubsInfo();
+  });
+  $('#subs-dur').addEventListener('input', () => {
+    $('#out-subsdur').textContent = (+$('#subs-dur').value).toFixed(1) + 's';
+    actualizarSubsInfo();
+  });
+  $('#subs-create').addEventListener('click', crearSubs);
+}
+
+// Aplica el estilo del texto que estás editando a todos los demás textos.
+function estiloATodosLosTextos() {
+  if (!textTarget) return;
+  const campos = ['size', 'font', 'color', 'bg', 'bgColor', 'bold', 'stroke', 'shadow',
+                  'letterSpacing', 'y', 'x', 'rotate', 'animIn', 'animOut', 'vertical'];
+  pushHistory();
+  let n = 0;
+  for (const c of project.tracks.text) {
+    if (c.id === textTarget.id || c.sticker) continue;
+    for (const k of campos) if (textTarget[k] !== undefined) c[k] = textTarget[k];
+    n++;
+  }
+  engine.render(engine.playhead); timeline.render(); scheduleSave(); haptic([12, 30, 12]);
+  toast(n ? `Estilo aplicado a ${n} texto${n > 1 ? 's' : ''} más` : 'No hay otros textos donde aplicarlo');
 }
 
 // ---------- Estabilizar video (PRO) ----------
@@ -1990,6 +2187,8 @@ function bindSpeed() {
     $('#out-speed').textContent = speedTarget.speed.toFixed(2) + '×';
     setActive('#speed-presets', 'speed', speedTarget.speed);
     refresh();
+    const inicio = videoClipStart(project.tracks.video, speedTarget.id);
+    livePreview(inicio, inicio + Math.min(4, clipDuration(speedTarget)), 'Velocidad ' + speedTarget.speed.toFixed(2) + '×');
   };
   $('#adj-speed').addEventListener('input', () => apply(+$('#adj-speed').value));
   $('#speed-presets').addEventListener('click', (e) => { const b = e.target.closest('[data-speed]'); if (b) apply(+b.dataset.speed); });
@@ -2015,6 +2214,15 @@ function openTransitionSheet(clip) {
   $('#adj-transdur').value = tr.duration || 0.6;
   $('#out-transdur').textContent = (tr.duration || 0.6).toFixed(1) + 's';
   openSheet('sheet-transition');
+  previewTransicion();
+}
+
+// Reproduce en bucle el momento exacto de la unión entre los dos clips.
+function previewTransicion() {
+  if (!transTarget) return;
+  const corte = videoClipStart(project.tracks.video, transTarget.id);
+  const dur = (transTarget.transition && transTarget.transition.duration) || 0.6;
+  livePreview(corte - 0.7, corte + dur + 0.5, 'Transición');
 }
 function bindTransition() {
   $('#transition-grid').addEventListener('click', (e) => {
@@ -2022,12 +2230,14 @@ function bindTransition() {
     transTarget.transition.type = b.dataset.trans;
     setActive('#transition-grid', 'trans', b.dataset.trans);
     refresh();
+    previewTransicion();
   });
   $('#adj-transdur').addEventListener('input', () => {
     if (!transTarget) return;
     transTarget.transition.duration = +$('#adj-transdur').value;
     $('#out-transdur').textContent = (+$('#adj-transdur').value).toFixed(1) + 's';
     refresh();
+    previewTransicion();
   });
 }
 
@@ -2118,7 +2328,14 @@ function bindText() {
   });
   $('#text-fonts').addEventListener('click', (e) => { const b = e.target.closest('[data-font]'); if (!b || !textTarget) return; textTarget.font = b.dataset.font; setActive('#text-fonts', 'font', b.dataset.font); engine.render(engine.playhead); scheduleSave(); });
   $('#text-bg').addEventListener('click', (e) => { const b = e.target.closest('[data-bg]'); if (!b || !textTarget) return; textTarget.bg = b.dataset.bg; setActive('#text-bg', 'bg', b.dataset.bg); engine.render(engine.playhead); scheduleSave(); });
-  $('#text-anim').addEventListener('click', (e) => { const b = e.target.closest('[data-anim]'); if (!b || !textTarget) return; textTarget.animIn = b.dataset.anim; textTarget.animOut = b.dataset.anim; setActive('#text-anim', 'anim', b.dataset.anim); engine.render(engine.playhead); scheduleSave(); });
+  $('#text-anim').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-anim]'); if (!b || !textTarget) return;
+    textTarget.animIn = b.dataset.anim; textTarget.animOut = b.dataset.anim;
+    setActive('#text-anim', 'anim', b.dataset.anim);
+    engine.render(engine.playhead); scheduleSave();
+    if (b.dataset.anim !== 'none') livePreview(textTarget.start, Math.min(textTarget.end, textTarget.start + 2.2), 'Animación del texto');
+    else stopLivePreview();
+  });
   $('#text-presets').addEventListener('click', (e) => {
     const b = e.target.closest('[data-preset]'); if (!b || !textTarget) return;
     const t = textTarget;
@@ -2132,6 +2349,8 @@ function bindText() {
     openTextSheet(t); // refresca controles
     engine.render(engine.playhead); timeline.render(); scheduleSave();
   });
+  $('#text-style-all').addEventListener('click', estiloATodosLosTextos);
+  $('#text-open-subs').addEventListener('click', () => { closeSheets(); setTimeout(openSubsSheet, 220); });
   $('#text-delete').addEventListener('click', () => {
     if (!textTarget) return;
     const i = project.tracks.text.findIndex(c => c.id === textTarget.id);
@@ -2147,6 +2366,11 @@ let exportRes = perf.suggestedExportTier(), exportFps = 30;
 
 // ---------- Ajustes / Rendimiento ----------
 function defaultImageDur() { return +(localStorage.getItem('playcut.imgDur') || 3) || 3; }
+function updateAutoPreviewBtn() {
+  const on = livePreviewOn();
+  $('#autopreview-label').textContent = on ? 'Activada' : 'Desactivada';
+  $('#btn-autopreview').classList.toggle('active', on);
+}
 function defaultFreezeDur() { return +(localStorage.getItem('playcut.freezeDur') || 2) || 2; }
 function openSettings() {
   $('#device-info').textContent = perf.deviceSummary();
@@ -2154,6 +2378,7 @@ function openSettings() {
   $$('#bg-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === project.bgColor));
   $('#set-imgdur').value = defaultImageDur();
   $('#out-imgdur').textContent = defaultImageDur().toFixed(1) + 's';
+  updateAutoPreviewBtn();
   $('#set-freezedur').value = defaultFreezeDur();
   $('#out-freezedur').textContent = defaultFreezeDur().toFixed(1) + 's';
   $('#set-projfadein').value = project.fadeIn || 0;
@@ -2179,6 +2404,17 @@ function bindSettings() {
     const v = +$('#set-imgdur').value;
     localStorage.setItem('playcut.imgDur', v);
     $('#out-imgdur').textContent = v.toFixed(1) + 's';
+  });
+  $('#btn-autopreview').addEventListener('click', () => {
+    localStorage.setItem('playcut.autoPreview', livePreviewOn() ? '0' : '1');
+    if (!livePreviewOn()) stopLivePreview();
+    updateAutoPreviewBtn(); haptic(10);
+    toast(livePreviewOn() ? 'Verás cada efecto al elegirlo' : 'Vista previa automática desactivada');
+  });
+  $('#btn-replay').addEventListener('click', () => {
+    if (!ultimoPreview) { toast('Elige antes un efecto para poder repetirlo'); return; }
+    closeSheets();
+    livePreview(ultimoPreview.a, ultimoPreview.b, ultimoPreview.texto, true);
   });
   $('#set-freezedur').addEventListener('input', () => {
     const v = +$('#set-freezedur').value;
@@ -2582,6 +2818,7 @@ function bindGlobal() {
   els.btnPlay.addEventListener('click', togglePlay);
 
   els.seek.addEventListener('input', () => {
+    stopLivePreview();
     engine.pause(); setPlayIcon(false);
     const t = (els.seek.value / 1000) * projectDuration(project);
     engine.seek(t); timeline.setPlayhead(t); updateTimeUI(t);
@@ -2632,7 +2869,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();

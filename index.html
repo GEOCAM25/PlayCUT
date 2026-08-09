@@ -30,6 +30,7 @@
     <symbol id="ic-marker" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
     <symbol id="ic-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9.5 4V3h5v1"/><path d="M9 11h6M9 15h4"/></symbol>
     <symbol id="ic-adjust" viewBox="0 0 24 24"><path d="M5 21v-7M5 10V3M12 21v-11M12 6V3M19 21v-4M19 13V3"/><path d="M2.5 14h5M9.5 6h5M16.5 17h5"/></symbol>
+    <symbol id="ic-curve" viewBox="0 0 24 24"><path d="M3.5 20.5h17M3.5 20.5V3.5"/><path d="M4 20C9 20 8 5 20 4"/><circle cx="9" cy="15.6" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="7.2" r="1.6" fill="currentColor" stroke="none"/></symbol>
     <symbol id="ic-volume" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.7 6.2a8 8 0 0 1 0 11.6"/></symbol>
     <symbol id="ic-speed" viewBox="0 0 24 24"><path d="M12 21a8.5 8.5 0 1 0-8.5-8.5"/><path d="M3.5 12.5 6 10M12 12.5l4.5-4"/><circle cx="12" cy="12.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
     <symbol id="ic-transition" viewBox="0 0 24 24"><rect x="2.5" y="6" width="9" height="12" rx="2"/><rect x="12.5" y="6" width="9" height="12" rx="2"/><path d="M9 12h6M13 10l2 2-2 2"/></symbol>
@@ -379,6 +380,12 @@
           <input id="adj-csim" type="range" min="0" max="100" value="40" /></label>
         <label class="only-chroma">Suavizado <output id="out-csm">12%</output>
           <input id="adj-csm" type="range" min="0" max="60" value="12" /></label>
+
+        <p class="sheet-sub only-visual">Curvas de color <span class="badge-pro">PRO</span></p>
+        <div class="opt-grid two only-visual">
+          <button class="opt" id="btn-open-curves" data-pro="colorcurves"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-curve"/></svg></span><span id="curves-state">Abrir curvas</span></button>
+          <button class="opt" id="btn-curves-off"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-undo"/></svg></span>Quitar curvas</button>
+        </div>
       </div>
 
       <div class="sliders">
@@ -732,6 +739,9 @@
       <p class="sheet-sub">Fundido de salida del video <output id="out-projfadeout">0.0s</output></p>
       <input id="set-projfadeout" type="range" min="0" max="3" step="0.1" value="0" />
       <p class="export-meta">Aparece desde negro al empezar y se va a negro al terminar (también baja el audio).</p>
+      <p class="sheet-sub">Duración del fotograma congelado <output id="out-freezedur">2.0s</output></p>
+      <input id="set-freezedur" type="range" min="0.3" max="10" step="0.1" value="2" />
+      <p class="export-meta">Es la duración que tendrá cada «🧊 Congelar». Después puedes cambiarla clip a clip.</p>
       <p class="sheet-sub">Duración de fotos nuevas <output id="out-imgdur">3.0s</output></p>
       <input id="set-imgdur" type="range" min="1" max="10" step="0.5" value="3" />
       <p class="export-meta">Cuánto dura cada foto al importarla. No afecta a las ya añadidas.</p>
@@ -786,6 +796,43 @@
   <div id="sheet-backdrop" class="sheet-backdrop"></div>
 
   <!-- Superposición de trabajo en curso (importar, convertir, congelar…) -->
+  <!-- ===================== HOJA: CURVAS DE COLOR ===================== -->
+  <div id="sheet-curves" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h3>Curvas de color <span class="badge-pro">PRO</span></h3>
+
+      <div class="curve-wrap">
+        <canvas id="curve-canvas" width="560" height="560" aria-label="Editor de curvas"></canvas>
+      </div>
+      <p class="export-meta" id="curve-hint">Toca la línea para añadir un punto y arrástralo. Abajo a la izquierda están las sombras; arriba a la derecha, las luces.</p>
+
+      <p class="sheet-sub">Canal</p>
+      <div class="opt-chips" id="curve-channels">
+        <button class="chip" data-crvch="rgb">RGB</button>
+        <button class="chip crv-r" data-crvch="r">Rojo</button>
+        <button class="chip crv-g" data-crvch="g">Verde</button>
+        <button class="chip crv-b" data-crvch="b">Azul</button>
+      </div>
+
+      <div class="opt-grid two">
+        <button class="opt" id="curve-del"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-trash"/></svg></span>Borrar punto</button>
+        <button class="opt" id="curve-reset"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-undo"/></svg></span>Restablecer canal</button>
+      </div>
+
+      <p class="sheet-sub">Ajustes rápidos</p>
+      <div class="opt-chips" id="curve-presets"></div>
+
+      <div class="opt-grid three">
+        <button class="opt" id="curve-copy"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg></span>Copiar</button>
+        <button class="opt" id="curve-paste"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-paste"/></svg></span>Pegar</button>
+        <button class="opt" id="curve-all"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-overlay"/></svg></span>A todo</button>
+      </div>
+
+      <button class="btn-primary" data-close-sheet>Listo</button>
+    </div>
+  </div>
+
   <!-- ===================== HOJA: PLAYCUT PRO ===================== -->
   <div id="sheet-pro" class="sheet">
     <div class="sheet-inner">

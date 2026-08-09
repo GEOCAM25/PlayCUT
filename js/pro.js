@@ -14,6 +14,7 @@ export const PRO_FEATURES = {
   grade: 'Corrección de color avanzada',
   blend: 'Modos de mezcla',
   curves: 'Curva de velocidad',
+  colorcurves: 'Curvas de color',
   safe: 'Guías de encuadre',
   beat: 'Marcadores al ritmo',
   histogram: 'Histograma en vivo',

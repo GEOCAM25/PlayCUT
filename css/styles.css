@@ -899,6 +899,23 @@ body.tut-open { overflow: hidden; }
   .project-name-input { font-size: 14px; }
 }
 
+/* ---------- Editor de curvas de color ---------- */
+.curve-wrap {
+  width: 100%; max-width: 340px; margin: 4px auto 10px;
+  aspect-ratio: 1 / 1; border-radius: var(--r-md);
+  border: 1px solid var(--line-strong); overflow: hidden;
+  background: rgba(8,8,13,.85); box-shadow: var(--sh-2);
+  touch-action: none;                 /* el arrastre es nuestro, no del scroll */
+}
+.curve-wrap canvas { display: block; width: 100%; height: 100%; }
+#curve-channels .chip.crv-r.active { background: #e0413f; border-color: transparent; color: #fff; }
+#curve-channels .chip.crv-g.active { background: #2f9e57; border-color: transparent; color: #fff; }
+#curve-channels .chip.crv-b.active { background: #3272d6; border-color: transparent; color: #fff; }
+#curve-presets .chip.active { background: var(--grad); border-color: transparent; color: #fff; }
+@media (min-width: 1024px) and (pointer: fine) {
+  .curve-wrap { max-width: 300px; }
+}
+
 /* ---------- Histograma en vivo (solo en pantalla, nunca se exporta) ---------- */
 .histogram {
   position: absolute; right: 10px; top: 10px; z-index: 6;

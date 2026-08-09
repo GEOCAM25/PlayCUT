@@ -15,6 +15,7 @@ import { encodeGif } from './gifencoder.js';
 import { reverseVideo, REVERSE_MAX_DUR } from './reverse.js';
 import * as perf from './perf.js';
 import * as pro from './pro.js';
+import * as curves from './curves.js';
 import * as tutorial from './tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -834,11 +835,12 @@ async function freezeFrame() {
     if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
     mediaNames.set(rec.id, 'Congelado');
     const clip = createVideoClip({ mediaId: rec.id, type: 'image', duration: 0, width: rec.width, height: rec.height });
-    clip.imageDuration = 2;
+    const dur = defaultFreezeDur();
+    clip.imageDuration = dur;
     clips.splice(at.index + 1, 0, clip);
     busyDone();
     refresh(); pushHistory(); timeline.select(clip.id, 'video');
-    haptic(15); toast('🧊 Fotograma congelado (2s) añadido');
+    haptic(15); toast(`🧊 Fotograma congelado (${dur.toFixed(1)}s) — arrastra su borde para alargarlo`);
   } catch (e) { busyDone(); console.error(e); toast('No se pudo congelar: ' + (e.message || '')); }
 }
 
@@ -1189,6 +1191,7 @@ function openAdjustSheet(clip, track) {
   updateKfUI(clip);
   updateAdjustOutputs();
   updateChromaUI();
+  updateCurvesBtn();
   openSheet('sheet-adjust');
 }
 
@@ -1522,6 +1525,256 @@ function pickChromaColor(e) {
   stopChromaPick(); haptic(12); toast('Color capturado: ' + hex);
 }
 
+// ---------- Curvas de color (PRO) ----------
+let curveTarget = null;      // { clip, track }
+let curveCh = 'rgb';         // canal en edición
+let curveSel = -1;           // punto seleccionado
+const CRV_COLORS = { rgb: '#ffffff', r: '#ff6b6b', g: '#5ddf90', b: '#6fa8ff' };
+
+function openCurvesSheet(clip, track) {
+  curveTarget = { clip, track };
+  if (!clip.curves) clip.curves = curves.crvDefault();
+  curveCh = 'rgb'; curveSel = -1;
+  renderCurvePresets();
+  updateCurveUI();
+  openSheet('sheet-curves');
+  // El canvas no tiene tamaño real hasta que la hoja es visible.
+  requestAnimationFrame(() => drawCurve());
+}
+
+function renderCurvePresets() {
+  const row = $('#curve-presets');
+  if (row.childElementCount) return;
+  row.innerHTML = curves.CURVE_PRESETS
+    .map(p => `<button class="chip" data-crvpre="${p.id}">${escapeHtml(p.nombre)}</button>`).join('');
+}
+
+function updateCurveUI() {
+  setActive('#curve-channels', 'crvch', curveCh);
+  $('#curve-del').style.opacity = curveSel > 0 && curveSel < curveChPts().length - 1 ? '1' : '.45';
+  drawCurve();
+}
+
+function curveChPts() {
+  const c = curveTarget && curveTarget.clip.curves;
+  if (!c) return curves.crvIdentity();
+  if (!c[curveCh]) c[curveCh] = curves.crvIdentity();
+  return c[curveCh];
+}
+
+// Dibuja rejilla, histograma de fondo, la curva del canal y sus puntos.
+function drawCurve() {
+  const cv = $('#curve-canvas');
+  if (!cv || !curveTarget) return;
+  const box = cv.getBoundingClientRect();
+  const px = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const size = Math.max(160, Math.round((box.width || 300) * px));
+  if (cv.width !== size) { cv.width = size; cv.height = size; }
+  const S = cv.width;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+  ctx.fillStyle = '#0b0b12'; ctx.fillRect(0, 0, S, S);
+
+  // Rejilla de tercios.
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = Math.max(1, S / 300);
+  for (let i = 1; i < 4; i++) {
+    const p = (S * i) / 4;
+    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
+  }
+  // Diagonal de referencia (sin cambios).
+  ctx.strokeStyle = 'rgba(255,255,255,.22)';
+  ctx.setLineDash([S / 60, S / 60]);
+  ctx.beginPath(); ctx.moveTo(0, S); ctx.lineTo(S, 0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Las demás curvas, tenues, para no perder de vista el conjunto.
+  const all = curveTarget.clip.curves || {};
+  for (const ch of curves.CURVE_CHANNELS) {
+    if (ch === curveCh) continue;
+    const lut = curves.crvLUT(all[ch]);
+    if (lut[0] === 0 && lut[128] === 128 && lut[255] === 255) continue;
+    strokeLUT(ctx, S, lut, CRV_COLORS[ch], 0.3, Math.max(1, S / 260));
+  }
+
+  // Canal activo.
+  const pts = curveChPts();
+  strokeLUT(ctx, S, curves.crvLUT(pts), CRV_COLORS[curveCh], 1, Math.max(2, S / 130));
+
+  // Puntos de control.
+  const r = Math.max(5, S / 42);
+  pts.forEach((p, i) => {
+    const x = p[0] * S, y = (1 - p[1]) * S;
+    ctx.beginPath(); ctx.arc(x, y, i === curveSel ? r * 1.35 : r, 0, Math.PI * 2);
+    ctx.fillStyle = i === curveSel ? CRV_COLORS[curveCh] : '#12121a';
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, S / 150); ctx.strokeStyle = CRV_COLORS[curveCh]; ctx.stroke();
+  });
+}
+
+function strokeLUT(ctx, S, lut, color, alpha, width) {
+  ctx.save();
+  ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < 256; i++) {
+    const x = (i / 255) * S, y = (1 - lut[i] / 255) * S;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function commitCurve(save = true) {
+  if (!curveTarget) return;
+  engine.invalidateCurves(curveTarget.clip.id);
+  engine.render(engine.playhead);
+  drawCurve();
+  if (save) scheduleSave();
+}
+
+function bindCurves() {
+  const cv = $('#curve-canvas');
+  const pos = (e) => {
+    const r = cv.getBoundingClientRect();
+    return [
+      Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)),
+    ];
+  };
+  let dragging = false;
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (!curveTarget) return;
+    e.preventDefault();
+    const [x, y] = pos(e);
+    const pts = curveChPts();
+    // ¿Toca un punto existente? (radio generoso para el dedo)
+    let hit = -1, best = 0.07;
+    pts.forEach((p, i) => {
+      const d = Math.hypot(p[0] - x, p[1] - y);
+      if (d < best) { best = d; hit = i; }
+    });
+    if (hit < 0) {
+      if (pts.length >= 8) { toast('Máximo 8 puntos por canal'); return; }
+      pts.push([x, y]);
+      pts.sort((a, b) => a[0] - b[0]);
+      hit = pts.findIndex(p => p[0] === x && p[1] === y);
+      pushHistory();
+    }
+    curveSel = hit; dragging = true;
+    cv.setPointerCapture(e.pointerId);
+    updateCurveUI(); commitCurve(false); haptic(8);
+  });
+
+  cv.addEventListener('pointermove', (e) => {
+    if (!dragging || curveSel < 0 || !curveTarget) return;
+    e.preventDefault();
+    const [x, y] = pos(e);
+    const pts = curveChPts();
+    const last = pts.length - 1;
+    // Los extremos solo se mueven en vertical: la curva siempre cubre 0..1.
+    if (curveSel === 0) pts[0] = [0, y];
+    else if (curveSel === last) pts[last] = [1, y];
+    else {
+      const min = pts[curveSel - 1][0] + 0.02, max = pts[curveSel + 1][0] - 0.02;
+      pts[curveSel] = [Math.max(min, Math.min(max, x)), y];
+    }
+    commitCurve(false);
+  });
+
+  const soltar = () => { if (!dragging) return; dragging = false; commitCurve(true); };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+
+  $('#curve-channels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-crvch]'); if (!b) return;
+    curveCh = b.dataset.crvch; curveSel = -1; updateCurveUI(); haptic(8);
+  });
+
+  $('#curve-del').addEventListener('click', () => {
+    const pts = curveChPts();
+    if (curveSel <= 0 || curveSel >= pts.length - 1) { toast('Elige un punto del medio para borrarlo'); return; }
+    pushHistory();
+    pts.splice(curveSel, 1); curveSel = -1;
+    updateCurveUI(); commitCurve(); haptic(12);
+  });
+
+  $('#curve-reset').addEventListener('click', () => {
+    if (!curveTarget) return;
+    pushHistory();
+    curveTarget.clip.curves[curveCh] = curves.crvIdentity();
+    curveSel = -1; updateCurveUI(); commitCurve();
+    toast('Canal ' + curveCh.toUpperCase() + ' restablecido');
+  });
+
+  $('#curve-presets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-crvpre]'); if (!b || !curveTarget) return;
+    pushHistory();
+    curveTarget.clip.curves = curves.crvFromPreset(b.dataset.crvpre);
+    curveSel = -1;
+    setActive('#curve-presets', 'crvpre', b.dataset.crvpre);
+    updateCurveUI(); commitCurve(); haptic(12);
+    toast('Curva «' + b.textContent + '» aplicada');
+  });
+
+  $('#curve-copy').addEventListener('click', () => {
+    if (!curveTarget) return;
+    curveClipboard = JSON.parse(JSON.stringify(curveTarget.clip.curves));
+    toast('Curva copiada — pégala con «Aplicar a todo» o en otro clip');
+    haptic(10);
+  });
+
+  $('#curve-paste').addEventListener('click', () => {
+    if (!curveTarget) return;
+    if (!curveClipboard) { toast('Primero copia una curva'); return; }
+    pushHistory();
+    curveTarget.clip.curves = JSON.parse(JSON.stringify(curveClipboard));
+    curveSel = -1; updateCurveUI(); commitCurve(); haptic(12);
+    toast('Curva pegada en este clip');
+  });
+
+  $('#curve-all').addEventListener('click', () => {
+    if (!curveTarget) return;
+    pushHistory();
+    const src = JSON.stringify(curveTarget.clip.curves);
+    let n = 0;
+    for (const c of [...project.tracks.video, ...project.tracks.overlay]) {
+      if (c.locked || c.id === curveTarget.clip.id) continue;
+      c.curves = JSON.parse(src); engine.invalidateCurves(c.id); n++;
+    }
+    engine.render(engine.playhead); scheduleSave(); haptic([12, 30, 12]);
+    toast(n ? `Curva aplicada a ${n} clip${n > 1 ? 's' : ''} más` : 'No hay otros clips donde aplicarla');
+  });
+
+  $('#btn-open-curves').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    if (!requirePro('colorcurves')) return;
+    openCurvesSheet(adjustTarget.clip, adjustTarget.track);
+  });
+
+  $('#btn-curves-off').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    pushHistory();
+    adjustTarget.clip.curves = null;
+    engine.invalidateCurves(adjustTarget.clip.id);
+    engine.render(engine.playhead); scheduleSave(); updateCurvesBtn();
+    haptic(10); toast('Curvas quitadas de este clip');
+  });
+
+  window.addEventListener('resize', () => { if ($('#sheet-curves').classList.contains('show')) drawCurve(); });
+}
+
+let curveClipboard = null;
+
+function updateCurvesBtn() {
+  const c = adjustTarget && adjustTarget.clip;
+  const on = curves.crvActive(c && c.curves);
+  $('#curves-state').textContent = on ? 'Editar curvas ✓' : 'Abrir curvas';
+  $('#btn-open-curves').classList.toggle('active', on);
+  $('#btn-curves-off').style.opacity = on ? '1' : '.45';
+}
+
 // ---------- Audio / Volumen ----------
 let audioTarget = null;
 function openAudioSheet(clip) {
@@ -1827,12 +2080,15 @@ let exportRes = perf.suggestedExportTier(), exportFps = 30;
 
 // ---------- Ajustes / Rendimiento ----------
 function defaultImageDur() { return +(localStorage.getItem('playcut.imgDur') || 3) || 3; }
+function defaultFreezeDur() { return +(localStorage.getItem('playcut.freezeDur') || 2) || 2; }
 function openSettings() {
   $('#device-info').textContent = perf.deviceSummary();
   setActive('#perf-grid', 'perf', perf.getMode());
   $$('#bg-colors .swatch').forEach(s => s.classList.toggle('active', s.dataset.color === project.bgColor));
   $('#set-imgdur').value = defaultImageDur();
   $('#out-imgdur').textContent = defaultImageDur().toFixed(1) + 's';
+  $('#set-freezedur').value = defaultFreezeDur();
+  $('#out-freezedur').textContent = defaultFreezeDur().toFixed(1) + 's';
   $('#set-projfadein').value = project.fadeIn || 0;
   $('#out-projfadein').textContent = (project.fadeIn || 0).toFixed(1) + 's';
   $('#set-projfadeout').value = project.fadeOut || 0;
@@ -1856,6 +2112,11 @@ function bindSettings() {
     const v = +$('#set-imgdur').value;
     localStorage.setItem('playcut.imgDur', v);
     $('#out-imgdur').textContent = v.toFixed(1) + 's';
+  });
+  $('#set-freezedur').addEventListener('input', () => {
+    const v = +$('#set-freezedur').value;
+    localStorage.setItem('playcut.freezeDur', v);
+    $('#out-freezedur').textContent = v.toFixed(1) + 's';
   });
   $('#set-projfadein').addEventListener('input', () => {
     project.fadeIn = +$('#set-projfadein').value;
@@ -2304,7 +2565,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();

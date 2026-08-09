@@ -177,6 +177,17 @@ export function getAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     streamDest = audioCtx.createMediaStreamDestination();
+    // Silencio permanente hacia la pista de exportación. Sin él, un proyecto
+    // SIN sonido (solo fotos o tarjetas de color) dejaba al grabador esperando
+    // muestras de audio que nunca llegaban y el video salía de un solo cuadro.
+    try {
+      const mudo = audioCtx.createConstantSource();
+      mudo.offset.value = 0;
+      const g0 = audioCtx.createGain();
+      g0.gain.value = 0;
+      mudo.connect(g0); g0.connect(streamDest);
+      mudo.start();
+    } catch {}
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;

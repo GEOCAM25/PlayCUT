@@ -7,6 +7,7 @@ import {
 } from './state.js';
 import { blobURLFor, connectElement, setClipGain, disconnectClip, getAudioContext, loadMediaRecord } from './media.js';
 import { getProfile } from './perf.js';
+import { crvActive, crvKey, crvTables } from './curves.js';
 
 export class Engine {
   constructor(canvas) {
@@ -23,6 +24,9 @@ export class Engine {
     this._captureTrack = null; // pista de captura durante la exportación
     this._chromaScratch = document.createElement('canvas'); // para video
     this._chromaCache = new Map(); // imágenes procesadas (clipId -> {key, canvas})
+    this._curveScratch = document.createElement('canvas'); // curvas sobre video
+    this._curveCache = new Map();  // imágenes ya graduadas (clipId -> {key, canvas})
+    this._curveLUTs = new Map();   // tablas 256 por clip (clipId -> {key, t})
   }
 
   setProject(project) {
@@ -80,6 +84,8 @@ export class Engine {
         // al elemento nuevo en vez de quedarse mudo con el nodo antiguo.
         disconnectClip(id);
         this._chromaCache.delete(id);
+        this._curveCache.delete(id);
+        this._curveLUTs.delete(id);
         this.elements.delete(id);
       }
     }
@@ -399,6 +405,12 @@ export class Engine {
       if (keyed) { dsrc = keyed; dsw = keyed.width; dsh = keyed.height; }
     }
 
+    // Curvas de color (PRO): reasigna cada tono con una tabla de 256 valores.
+    if (crvActive(clip.curves)) {
+      const graded = this._curveProcess(clip, dsrc, dsw, dsh, rec.type === 'image');
+      if (graded) { dsrc = graded; dsw = graded.width; dsh = graded.height; }
+    }
+
     // Recorte manual: nos quedamos solo con una parte de la imagen original.
     // Se guarda en fracciones (0..1) para que valga a cualquier resolución.
     let srcRect = null;
@@ -558,6 +570,51 @@ export class Engine {
     cctx.putImageData(img, 0, 0);
     if (isImage) this._chromaCache.set(clip.id, { key, canvas });
     return canvas;
+  }
+
+  // Tablas de 256 valores del clip, recalculadas solo cuando cambia la curva.
+  _curveTables(clip) {
+    const key = crvKey(clip.curves);
+    const c = this._curveLUTs.get(clip.id);
+    if (c && c.key === key) return c.t;
+    const t = crvTables(clip.curves);
+    this._curveLUTs.set(clip.id, { key, t });
+    return t;
+  }
+
+  // Aplica las curvas píxel a píxel. Igual que el chroma: las fotos se cachean
+  // y el video se limita en resolución para que la vista previa no se atasque.
+  _curveProcess(clip, src, sw, sh, isImage) {
+    const key = crvKey(clip.curves) + `|${sw}x${sh}`;
+    if (isImage) {
+      const cached = this._curveCache.get(clip.id);
+      if (cached && cached.key === key) return cached.canvas;
+    }
+    const long = Math.max(sw, sh);
+    const cap = isImage ? 1600 : (this._exporting ? 1440 : 720);
+    const scale = Math.min(1, cap / long);
+    const w = Math.max(2, Math.round(sw * scale)), h = Math.max(2, Math.round(sh * scale));
+    const canvas = isImage ? document.createElement('canvas') : this._curveScratch;
+    canvas.width = w; canvas.height = h;
+    const cx = canvas.getContext('2d', { willReadFrequently: true });
+    cx.clearRect(0, 0, w, h);
+    cx.drawImage(src, 0, 0, w, h);
+    let img;
+    try { img = cx.getImageData(0, 0, w, h); } catch { return null; }
+    const d = img.data;
+    const { r, g, b } = this._curveTables(clip);
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = r[d[i]]; d[i + 1] = g[d[i + 1]]; d[i + 2] = b[d[i + 2]];
+    }
+    cx.putImageData(img, 0, 0);
+    if (isImage) this._curveCache.set(clip.id, { key, canvas });
+    return canvas;
+  }
+
+  // Llamar cuando el usuario toca la curva de un clip.
+  invalidateCurves(clipId) {
+    this._curveCache.delete(clipId);
+    this._curveLUTs.delete(clipId);
   }
 
   _drawFit(src, sw, sh, cover, scale, tx, ty, rot, opts) {

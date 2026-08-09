@@ -469,9 +469,12 @@ export class Engine {
       this.ctx.clip();
     }
 
-    const totalScale = tScale * m.scale * (extra.scale ?? 1) * anim.scale;
-    const tx = tOx * W + m.dx * W + (extra.tx || 0) + anim.dx * W;
-    const ty = tOy * H + m.dy * H + (extra.ty || 0) + anim.dy * H;
+    // Estabilización: compensa el temblor medido y amplía lo justo para que
+    // el movimiento no descubra los bordes.
+    const st = this._stabAt(clip, local);
+    const totalScale = tScale * m.scale * (extra.scale ?? 1) * anim.scale * (st ? st.zoom : 1);
+    const tx = tOx * W + m.dx * W + (extra.tx || 0) + anim.dx * W + (st ? st.dx * W : 0);
+    const ty = tOy * H + m.dy * H + (extra.ty || 0) + anim.dy * H + (st ? st.dy * H : 0);
     const rot = (tRot + (extra.rotate || 0) + anim.rot) * Math.PI / 180;
 
     const chromaOn = !!(clip.chroma && clip.chroma.on);
@@ -485,6 +488,25 @@ export class Engine {
     }
     this._drawFit(dsrc, dsw, dsh, useCover, totalScale, tx, ty, rot, fitOpts);
     this.ctx.restore();
+  }
+
+  // Desplazamiento de estabilización en el tiempo local del clip.
+  _stabAt(clip, local) {
+    const s = clip.stab;
+    if (!s || !s.on || !s.pts || !s.pts.length) return null;
+    const fuerza = s.strength ?? 1;
+    const zoom = 1 + ((s.zoom || 1) - 1) * fuerza;
+    const src = clip.inPoint + local * (clip.speed || 1);
+    // Busca el fotograma que se está viendo (el último que empezó antes de
+    // `src`). Es una búsqueda binaria: la lista puede tener cientos de puntos.
+    const pts = s.pts;
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (pts[mid][0] <= src) lo = mid; else hi = mid - 1;
+    }
+    const p = pts[lo];
+    return { dx: p[1] * fuerza, dy: p[2] * fuerza, zoom };
   }
 
   // Combina la animación de entrada y salida del clip en el tiempo local.

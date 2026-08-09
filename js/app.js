@@ -16,6 +16,7 @@ import { reverseVideo, REVERSE_MAX_DUR } from './reverse.js';
 import * as perf from './perf.js';
 import * as pro from './pro.js';
 import * as curves from './curves.js';
+import { analyzeShake, STAB_MAX_DUR } from './stabilize.js';
 import * as tutorial from './tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -1166,6 +1167,7 @@ function openAdjustSheet(clip, track) {
   showLabels('only-audio', track === 'audio');
   showLabels('only-image', isImage);
   showLabels('only-visual', isVisual);
+  showLabels('only-video', isVisual && clip.type === 'video');
   // La viñeta y el grano solo afectan al clip de fondo (no a la superposición).
   labelFor('#adj-vignette').style.display = track === 'video' ? '' : 'none';
   labelFor('#adj-grain').style.display = track === 'video' ? '' : 'none';
@@ -1192,6 +1194,7 @@ function openAdjustSheet(clip, track) {
   updateAdjustOutputs();
   updateChromaUI();
   updateCurvesBtn();
+  updateStabUI();
   openSheet('sheet-adjust');
 }
 
@@ -1523,6 +1526,70 @@ function pickChromaColor(e) {
     invalidateChroma(adjustTarget.clip); updateChromaUI(); engine.render(engine.playhead); scheduleSave();
   }
   stopChromaPick(); haptic(12); toast('Color capturado: ' + hex);
+}
+
+// ---------- Estabilizar video (PRO) ----------
+function updateStabUI() {
+  const c = adjustTarget && adjustTarget.clip;
+  const st = c && c.stab;
+  const on = !!(st && st.on);
+  $('#stab-label').textContent = on ? 'Analizar de nuevo' : 'Estabilizar';
+  $('#btn-stabilize').classList.toggle('active', on);
+  $('#btn-stab-off').style.opacity = on ? '1' : '.45';
+  $('#stab-strength-row').style.display = on ? '' : 'none';
+  $('#adj-stab').value = Math.round((st ? (st.strength ?? 1) : 1) * 100);
+  $('#out-stab').textContent = $('#adj-stab').value + '%';
+  $('#stab-hint').textContent = on
+    ? `Temblor detectado: ${st.shake ?? '?'}% del encuadre · se amplía a ${Math.round(((st.zoom || 1) - 1) * 100)}% para taparlo.`
+    : 'Analiza el movimiento de la cámara y compensa el temblor. Amplía un poco la imagen para tapar los bordes.';
+}
+
+async function stabilizeClip() {
+  const t = adjustTarget;
+  if (!t || t.clip.type !== 'video') { toast('Solo se puede estabilizar un video'); return; }
+  const clip = t.clip;
+  const largo = clip.outPoint - clip.inPoint;
+  try {
+    busy('Analizando el movimiento… 0%');
+    const rec = await loadMediaRecord(clip.mediaId);
+    if (!rec || !rec.blob) { busyDone(); toast('No se encuentra el video'); return; }
+    const hasta = Math.min(clip.outPoint, clip.inPoint + STAB_MAX_DUR);
+    const datos = await analyzeShake(rec.blob, clip.inPoint, hasta, (p) => {
+      busyUpdate(`Analizando el movimiento… ${Math.round(p * 100)}%`);
+    });
+    busyDone();
+    pushHistory();
+    clip.stab = datos;
+    engine.render(engine.playhead);
+    updateStabUI(); timeline.render(); scheduleSave(); haptic([12, 30, 12]);
+    if (largo > STAB_MAX_DUR) toast(`Estabilizados los primeros ${STAB_MAX_DUR}s (temblor: ${datos.shake}%)`);
+    else toast(`Video estabilizado — temblor detectado: ${datos.shake}% del encuadre`);
+  } catch (e) {
+    busyDone(); console.error(e);
+    toast('No se pudo estabilizar: ' + (e.message || ''));
+  }
+}
+
+function bindStabilize() {
+  $('#btn-stabilize').addEventListener('click', () => {
+    if (!adjustTarget) return;
+    if (!requirePro('stab')) return;
+    stabilizeClip();
+  });
+  $('#btn-stab-off').addEventListener('click', () => {
+    if (!adjustTarget || !adjustTarget.clip.stab) return;
+    pushHistory();
+    adjustTarget.clip.stab = null;
+    engine.render(engine.playhead); updateStabUI(); timeline.render(); scheduleSave();
+    haptic(10); toast('Estabilización quitada');
+  });
+  $('#adj-stab').addEventListener('input', () => {
+    const c = adjustTarget && adjustTarget.clip;
+    if (!c || !c.stab) return;
+    c.stab.strength = (+$('#adj-stab').value) / 100;
+    $('#out-stab').textContent = $('#adj-stab').value + '%';
+    engine.render(engine.playhead); scheduleSave();
+  });
 }
 
 // ---------- Curvas de color (PRO) ----------
@@ -2565,7 +2632,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();

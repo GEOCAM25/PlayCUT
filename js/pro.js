@@ -15,6 +15,7 @@ export const PRO_FEATURES = {
   blend: 'Modos de mezcla',
   curves: 'Curva de velocidad',
   colorcurves: 'Curvas de color',
+  stab: 'Estabilizar video',
   safe: 'Guías de encuadre',
   beat: 'Marcadores al ritmo',
   histogram: 'Histograma en vivo',

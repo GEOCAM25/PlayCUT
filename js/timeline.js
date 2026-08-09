@@ -89,6 +89,8 @@ export class Timeline {
       if ((clip.speed || 1) !== 1) tag += ` ${(clip.speed).toFixed(clip.speed % 1 ? 1 : 0)}×`;
       if (clip.motion && clip.motion !== 'none') tag += ' ✦';
       if (clip.muted) tag += ' · sin sonido';
+      if (clip.stab && clip.stab.on) tag += ' ⛶';
+      if (clip.curves) tag += ' ◠';
       this._addLabel(el, tag);
       this._addTrimHandles(el, clip, 'video');
       this._makeReorderable(el, clip);

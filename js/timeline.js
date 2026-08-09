@@ -1,6 +1,6 @@
 // timeline.js — Render e interacción de la línea de tiempo (táctil + zoom).
 
-import { clipDuration, videoClipStart, projectDuration, videoLayout, overlayDuration } from './state.js';
+import { clipDuration, videoClipStart, projectDuration, videoLayout, overlayDuration, overlayLayerCount } from './state.js';
 
 export const PPS = 90; // píxeles por segundo (base, zoom = 1)
 
@@ -108,20 +108,43 @@ export class Timeline {
     });
   }
 
+  // Una fila por capa de superposición. La capa 0 se dibuja abajo del todo en
+  // el video, así que aquí va la ÚLTIMA: en pantalla, arriba = encima.
   _renderOverlayTrack() {
-    const track = this.trackEls.overlay;
-    track.innerHTML = '';
+    const cont = this.trackEls.overlay;
+    cont.innerHTML = '';
     const clips = this.project.tracks.overlay || [];
-    if (clips.length === 0) { track.appendChild(this._hint('Superposición (video o foto encima)')); return; }
-    clips.forEach((clip) => {
-      const el = this._buildClip(clip, 'overlay', clip.start, overlayDuration(clip));
-      this._addThumb(el, clip.mediaId);
-      el.classList.add('type-overlay');
-      this._addLabel(el, 'Encima' + (clip.muted ? ' · sin sonido' : ''));
-      this._addTrimHandles(el, clip, 'overlay');
-      this._makeMovable(el, clip, 'overlay');
-      track.appendChild(el);
-    });
+    const capas = overlayLayerCount(this.project);
+    if (clips.length === 0 && capas === 1) {
+      const fila = document.createElement('div');
+      fila.className = 'ov-row';
+      fila.appendChild(this._hint('Superposición (video o foto encima)'));
+      cont.appendChild(fila);
+      return;
+    }
+    for (let capa = capas - 1; capa >= 0; capa--) {
+      const fila = document.createElement('div');
+      fila.className = 'ov-row';
+      fila.dataset.layer = capa;
+      if (capas > 1) {
+        const et = document.createElement('span');
+        et.className = 'ov-row-label';
+        et.textContent = 'C' + (capa + 1);
+        fila.appendChild(et);
+      }
+      const enCapa = clips.filter(c => (c.layer || 0) === capa);
+      if (!enCapa.length) fila.appendChild(this._hint(capas > 1 ? 'Capa vacía' : 'Superposición (video o foto encima)'));
+      for (const clip of enCapa) {
+        const el = this._buildClip(clip, 'overlay', clip.start, overlayDuration(clip));
+        this._addThumb(el, clip.mediaId);
+        el.classList.add('type-overlay');
+        this._addLabel(el, (capas > 1 ? 'C' + (capa + 1) : 'Encima') + (clip.muted ? ' · sin sonido' : ''));
+        this._addTrimHandles(el, clip, 'overlay');
+        this._makeMovable(el, clip, 'overlay');
+        fila.appendChild(el);
+      }
+      cont.appendChild(fila);
+    }
   }
 
   _renderAudioTrack() {

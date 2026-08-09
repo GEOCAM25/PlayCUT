@@ -94,7 +94,7 @@ export function createOverlayClip({ mediaId, type, duration, width, height, star
   const dur = duration || 0;
   return {
     id: uid(), mediaId, type,
-    start,
+    start, layer: 0,        // capa de superposición (0 = la de más abajo)
     inPoint: 0, outPoint: dur, imageDuration: 3,
     _autoDur: type === 'video' && !duration,
     srcWidth: width, srcHeight: height, srcDuration: dur,
@@ -191,6 +191,7 @@ export function normalizeProject(p) {
     c.radius = c.radius ?? 0.04; c.shadow = c.shadow ?? true; c.start = c.start ?? 0;
     c.blend = c.blend || 'normal';
     c.borderW = c.borderW ?? 0; c.borderColor = c.borderColor || '#ffffff';
+    c.layer = Math.max(0, Math.round(c.layer ?? 0));
     c.mask = c.mask || 'none'; c.keyframes = c.keyframes || [];
     c.filterAmt = c.filterAmt ?? 1; c.temp = c.temp ?? 0; c.hue = c.hue ?? 0; c.vignette = c.vignette ?? 0; c.grain = c.grain ?? 0;
     c.curves = c.curves || null;
@@ -252,6 +253,22 @@ export function videoClipStart(clips, index) {
 export function videoTotalDuration(clips) {
   const layout = videoLayout(clips);
   return layout.length ? layout[layout.length - 1].end : 0;
+}
+
+// Cuántas capas de superposición hay (siempre al menos una).
+export function overlayLayerCount(project) {
+  let max = 0;
+  for (const c of (project.tracks.overlay || [])) max = Math.max(max, c.layer || 0);
+  return max + 1;
+}
+
+// Superposiciones ordenadas de abajo arriba: primero la capa, y dentro de
+// cada capa el orden en que se añadieron.
+export function overlaysInOrder(project) {
+  return (project.tracks.overlay || [])
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => ((a.c.layer || 0) - (b.c.layer || 0)) || (a.i - b.i))
+    .map(x => x.c);
 }
 
 export function projectDuration(project) {

@@ -3,7 +3,7 @@
 import {
   createProject, createVideoClip, createAudioClip, createTextClip, createOverlayClip,
   clipDuration, projectDuration, videoClipAt, formatTime,
-  normalizeProject, RATIOS, videoClipStart, overlayDuration,
+  normalizeProject, RATIOS, videoClipStart, overlayDuration, overlayLayerCount,
 } from './state.js';
 import * as db from './db.js';
 import { importFile, loadMediaRecord, computePeaks } from './media.js';
@@ -431,6 +431,9 @@ async function handleOverlayFiles(files) {
       if (rec.thumb) mediaThumbs.set(rec.id, rec.thumb);
       mediaNames.set(rec.id, rec.name);
       const clip = createOverlayClip({ mediaId: rec.id, type: rec.kind, duration: rec.duration || 0, width: rec.width, height: rec.height, start: engine.playhead });
+      // Si en esa capa ya hay algo en ese momento, se apila en la de encima
+      // en vez de solaparse de forma invisible en la línea de tiempo.
+      clip.layer = capaLibre(clip.start, overlayDuration(clip));
       project.tracks.overlay.push(clip); last = clip;
     } catch (e) { console.error(e); toast('No se pudo importar ' + file.name); }
   }
@@ -527,6 +530,8 @@ function bindToolbar() {
       case 'clip-duplicate': duplicateClip(sel); break;
       case 'clip-copy': copyClip(sel); break;
       case 'clip-extract-audio': extractClipAudio(sel); break;
+      case 'layer-up': cambiarCapa(sel, +1); break;
+      case 'layer-down': cambiarCapa(sel, -1); break;
       case 'clip-mirror': mirrorDuplicate(sel); break;
       case 'clip-reverse': if (requirePro('reverse')) reverseClip(sel); break;
       case 'clip-lock': toggleLock(sel); break;
@@ -1062,10 +1067,12 @@ function pasteClip() {
   refresh(); timeline.select(clip.id, track); haptic(15); toast('Pegado en el cursor');
 }
 
-function onClipSelected(clip) {
+function onClipSelected(clip, track) {
   const has = !!clip;
   els.toolbarMain.hidden = has;
   els.clipTools.hidden = !has;
+  // Las capas solo tienen sentido en la pista de superposición.
+  $$('.ov-only').forEach(el => el.hidden = !(has && track === 'overlay'));
   if (has) {
     const lockBtn = $('#clip-tools [data-action="clip-lock"]');
     if (lockBtn) {
@@ -1716,6 +1723,44 @@ function updateFocusUI() {
     $('#adj-focusy').value = f.y ?? 50;
   }
   updateAdjustOutputs();
+}
+
+// ---------- Capas de superposición ----------
+// Se guardan como un número en cada clip (`layer`), no como listas separadas:
+// así el proyecto de siempre sigue abriéndose y deshacer/rehacer no cambia.
+function haySolape(capa, start, dur, ignorar) {
+  for (const c of project.tracks.overlay) {
+    if ((c.layer || 0) !== capa) continue;
+    if (ignorar && c.id === ignorar) continue;
+    const d = overlayDuration(c);
+    if (start < c.start + d && c.start < start + dur) return true;
+  }
+  return false;
+}
+
+function capaLibre(start, dur, ignorar) {
+  for (let capa = 0; capa < 8; capa++) {
+    if (!haySolape(capa, start, dur, ignorar)) return capa;
+  }
+  return 7;
+}
+
+function cambiarCapa(sel, dir) {
+  if (sel.track !== 'overlay') { toast('Las capas son para las superposiciones'); return; }
+  const c = sel.clip;
+  const destino = (c.layer || 0) + dir;
+  if (destino < 0) { toast('Ya está en la capa de más abajo'); return; }
+  if (destino > 7) { toast('Máximo 8 capas'); return; }
+  const dur = overlayDuration(c);
+  if (haySolape(destino, c.start, dur, c.id)) {
+    toast('En esa capa ya hay algo en este momento — muévelo antes');
+    return;
+  }
+  pushHistory();
+  c.layer = destino;
+  refresh(); timeline.select(c.id, 'overlay');
+  haptic(12);
+  toast(`Movido a la capa ${destino + 1}` + (dir > 0 ? ' (más al frente)' : ' (más al fondo)'));
 }
 
 // ---------- Corte automático (silencios y cambios de plano) ----------

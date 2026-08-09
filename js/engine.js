@@ -4,6 +4,7 @@
 
 import {
   projectDuration, videoStateAt, clipDuration, clipFilterString, FONTS, overlayDuration,
+  overlaysInOrder,
 } from './state.js';
 import { blobURLFor, connectElement, setClipGain, disconnectClip, getAudioContext, loadMediaRecord } from './media.js';
 import { getProfile } from './perf.js';
@@ -194,7 +195,8 @@ export class Engine {
 
     // Capa superpuesta (PiP), encima del video principal, con modo de mezcla.
     const BLEND = { normal: 'source-over', screen: 'screen', multiply: 'multiply', add: 'lighter', overlay: 'overlay', difference: 'difference', hardlight: 'hard-light', softlight: 'soft-light', lighten: 'lighten', darken: 'darken', colordodge: 'color-dodge', exclusion: 'exclusion' };
-    for (const ov of (this.project.tracks.overlay || [])) {
+    // De abajo arriba: la capa 0 se dibuja primero y las de encima la tapan.
+    for (const ov of overlaysInOrder(this.project)) {
       const d = overlayDuration(ov);
       if (t >= ov.start && t < ov.start + d) {
         const prevOp = ctx.globalCompositeOperation;

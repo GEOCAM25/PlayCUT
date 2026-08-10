@@ -490,6 +490,16 @@
         <label>Terminar poco a poco (fade out) <output id="out-afo">0.0s</output>
           <input id="a-fo" type="range" min="0" max="5" step="0.1" value="0" /></label>
       </div>
+      <p class="sheet-sub">Curva de volumen</p>
+      <div class="vol-wrap"><canvas id="vol-canvas" width="700" height="220" aria-label="Curva de volumen"></canvas></div>
+      <p class="export-meta" id="vol-hint">Toca la línea para poner un punto y arrástralo. Sirve para bajar la música justo en una frase y volver a subirla.</p>
+      <div class="opt-grid three">
+        <button class="opt" id="vol-del"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-trash"/></svg></span>Borrar punto</button>
+        <button class="opt" id="vol-reset"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-undo"/></svg></span>Quitar curva</button>
+        <button class="opt" id="btn-crossfade"><span class="opt-ico"><svg class="ic" aria-hidden="true"><use href="#ic-transition"/></svg></span>Fundido cruzado</button>
+      </div>
+      <p class="export-meta" id="cross-hint">«Fundido cruzado» solapa esta música con la anterior y hace que una entre mientras la otra se va.</p>
+
       <p class="export-meta">Sube el volumen del video y baja el de la música (o al revés) ajustando cada clip por separado.</p>
       <button class="primary-btn full" data-close-sheet>Listo</button>
     </div>

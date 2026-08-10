@@ -125,6 +125,7 @@ export function createAudioClip({ mediaId, duration, start = 0, name = 'Audio' }
     inPoint: 0, outPoint: duration, srcDuration: duration,
     start, volume: 1, muted: false, fadeIn: 0, fadeOut: 0,
     duck: false, // baja solo cuando suena otra cosa (voz, audio del video)
+    volPoints: null, // curva de volumen dibujada a mano: [[segundo, 0..2], …]
   };
 }
 
@@ -204,7 +205,7 @@ export function normalizeProject(p) {
     if (!c.crop) c.crop = { x: 0, y: 0, w: 1, h: 1 };
     if (!c.chroma) c.chroma = { on: false, color: '#00e000', similarity: 0.4, smooth: 0.12 };
   }
-  for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; c.duck = c.duck ?? false; }
+  for (const c of p.tracks.audio) { c.muted = c.muted ?? false; c.fadeIn = c.fadeIn ?? 0; c.fadeOut = c.fadeOut ?? 0; c.duck = c.duck ?? false; c.volPoints = c.volPoints || null; }
   for (const c of p.tracks.text) {
     c.bold = c.bold ?? true; c.font = c.font || 'sans'; c.bg = c.bg || 'none';
     c.bgColor = c.bgColor || '#ff3b6b'; c.animIn = c.animIn || 'none';

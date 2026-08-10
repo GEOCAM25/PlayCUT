@@ -1113,7 +1113,27 @@ export class Engine {
     let e = 1;
     if (clip.fadeIn > 0) e = Math.min(e, Math.max(0, (t - start) / clip.fadeIn));
     if (clip.fadeOut > 0) e = Math.min(e, Math.max(0, (end - t) / clip.fadeOut));
-    return e;
+    return e * this._volCurve(clip, t - start);
+  }
+
+  // Curva de volumen dibujada a mano: puntos [segundo, multiplicador] en el
+  // tiempo local del clip, unidos por rectas. Sin puntos, no hace nada.
+  _volCurve(clip, local) {
+    const p = clip.volPoints;
+    if (!p || p.length < 1) return 1;
+    if (p.length === 1) return p[0][1];
+    if (local <= p[0][0]) return p[0][1];
+    const ult = p[p.length - 1];
+    if (local >= ult[0]) return ult[1];
+    let lo = 0, hi = p.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (p[mid][0] <= local) lo = mid; else hi = mid - 1;
+    }
+    const a = p[lo], b = p[Math.min(p.length - 1, lo + 1)];
+    const span = b[0] - a[0];
+    const k = span > 1e-6 ? (local - a[0]) / span : 0;
+    return a[1] + (b[1] - a[1]) * k;
   }
 
   // Ganancia del fundido del proyecto (baja el audio al aparecer/desaparecer).

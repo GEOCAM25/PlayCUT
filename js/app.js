@@ -2453,8 +2453,225 @@ function openAudioSheet(clip) {
   $('#a-fi').value = clip.fadeIn ?? 0;
   $('#a-fo').value = clip.fadeOut ?? 0;
   updateAudioOutputs(); updateMuteBtn(); updateDuckBtn();
+  volSel = -1; updateVolUI();
   openSheet('sheet-audio-clip');
+  requestAnimationFrame(drawVolCurve);
 }
+// ---------- Curva de volumen ----------
+let volSel = -1;   // punto seleccionado
+
+function volDur() {
+  const c = audioTarget;
+  if (!c) return 1;
+  return Math.max(0.2, c.type === 'audio' || c.outPoint != null
+    ? (c.outPoint - c.inPoint) / (c.speed || 1)
+    : 1);
+}
+
+function volPuntos() {
+  if (!audioTarget) return [];
+  if (!audioTarget.volPoints) audioTarget.volPoints = [];
+  return audioTarget.volPoints;
+}
+
+function updateVolUI() {
+  const hay = volPuntos().length > 0;
+  $('#vol-del').style.opacity = volSel >= 0 ? '1' : '.45';
+  $('#vol-reset').style.opacity = hay ? '1' : '.45';
+  $('#vol-hint').textContent = hay
+    ? `${volPuntos().length} punto${volPuntos().length > 1 ? 's' : ''} · arrastra para ajustar, toca en otro sitio para añadir.`
+    : 'Toca la línea para poner un punto y arrástralo. Sirve para bajar la música justo en una frase y volver a subirla.';
+  drawVolCurve();
+}
+
+// Dibuja la forma de onda de fondo y la curva de volumen encima.
+function drawVolCurve() {
+  const cv = $('#vol-canvas');
+  if (!cv || !audioTarget) return;
+  const caja = cv.getBoundingClientRect();
+  const px = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const W = Math.max(160, Math.round((caja.width || 340) * px));
+  const H = Math.max(60, Math.round((caja.height || 110) * px));
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0b0b12'; ctx.fillRect(0, 0, W, H);
+
+  // Fondo: la forma de onda del audio, para saber dónde estás.
+  const peaks = mediaPeaks.get(audioTarget.mediaId);
+  if (peaks && peaks.length) {
+    const c = audioTarget;
+    const dur = c.srcDuration || (c.outPoint - c.inPoint) || 1;
+    const a = Math.max(0, Math.min(1, c.inPoint / dur));
+    const b = Math.max(a + 0.001, Math.min(1, c.outPoint / dur));
+    ctx.fillStyle = 'rgba(53,231,155,.22)';
+    for (let x = 0; x < W; x++) {
+      const k = a + (b - a) * (x / W);
+      const v = peaks[Math.min(peaks.length - 1, Math.floor(k * peaks.length))] || 0;
+      const h = Math.max(1, v * H * 0.42);
+      ctx.fillRect(x, H / 2 - h, 1, h * 2);
+    }
+  }
+
+  // Rejilla: 100% (referencia) y 200% (tope).
+  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = Math.max(1, px);
+  const yDe = (v) => H - (v / 2) * H;
+  ctx.setLineDash([4 * px, 4 * px]);
+  ctx.beginPath(); ctx.moveTo(0, yDe(1)); ctx.lineTo(W, yDe(1)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const dur = volDur();
+  const pts = volPuntos();
+  const base = audioTarget.volume ?? 1;
+  // Curva efectiva: sin puntos es una recta al volumen del clip.
+  ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = Math.max(2, px * 2);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 2) {
+    const t = (x / W) * dur;
+    const v = curvaVolEn(pts, t) * base;
+    const y = yDe(Math.max(0, Math.min(2, v)));
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  const r = Math.max(5, px * 5);
+  pts.forEach((p, i) => {
+    const x = (p[0] / dur) * W, y = yDe(Math.max(0, Math.min(2, p[1] * base)));
+    ctx.beginPath(); ctx.arc(x, y, i === volSel ? r * 1.35 : r, 0, Math.PI * 2);
+    ctx.fillStyle = i === volSel ? '#8b5cf6' : '#12121a';
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, px * 1.6); ctx.strokeStyle = '#8b5cf6'; ctx.stroke();
+  });
+}
+
+// Mismo cálculo que el motor, para que lo dibujado sea lo que se oye.
+function curvaVolEn(pts, t) {
+  if (!pts || !pts.length) return 1;
+  if (pts.length === 1) return pts[0][1];
+  if (t <= pts[0][0]) return pts[0][1];
+  const ult = pts[pts.length - 1];
+  if (t >= ult[0]) return ult[1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (t >= pts[i][0] && t <= pts[i + 1][0]) {
+      const span = pts[i + 1][0] - pts[i][0];
+      const k = span > 1e-6 ? (t - pts[i][0]) / span : 0;
+      return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k;
+    }
+  }
+  return ult[1];
+}
+
+function bindVolCurve() {
+  const cv = $('#vol-canvas');
+  const pos = (e) => {
+    const r = cv.getBoundingClientRect();
+    return [
+      Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * volDur(),
+      Math.max(0, Math.min(2, (1 - (e.clientY - r.top) / r.height) * 2)),
+    ];
+  };
+  let arrastrando = false;
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (!audioTarget) return;
+    e.preventDefault();
+    const [t, v] = pos(e);
+    const pts = volPuntos();
+    const dur = volDur();
+    let hit = -1, mejor = 0.07;
+    pts.forEach((p, i) => {
+      const d = Math.hypot((p[0] - t) / dur, (p[1] - v) / 2);
+      if (d < mejor) { mejor = d; hit = i; }
+    });
+    if (hit < 0) {
+      if (pts.length >= 12) { toast('Máximo 12 puntos'); return; }
+      pushHistory();
+      pts.push([t, v]);
+      pts.sort((a, b) => a[0] - b[0]);
+      hit = pts.findIndex(p => p[0] === t && p[1] === v);
+    }
+    volSel = hit; arrastrando = true;
+    cv.setPointerCapture(e.pointerId);
+    updateVolUI(); engine.applyGains(); haptic(8);
+  });
+
+  cv.addEventListener('pointermove', (e) => {
+    if (!arrastrando || volSel < 0 || !audioTarget) return;
+    e.preventDefault();
+    const [t, v] = pos(e);
+    const pts = volPuntos();
+    const min = volSel > 0 ? pts[volSel - 1][0] + 0.02 : 0;
+    const max = volSel < pts.length - 1 ? pts[volSel + 1][0] - 0.02 : volDur();
+    pts[volSel] = [Math.max(min, Math.min(max, t)), v];
+    drawVolCurve();
+  });
+
+  const soltar = () => {
+    if (!arrastrando) return;
+    arrastrando = false;
+    updateVolUI(); scheduleSave();
+  };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+
+  $('#vol-del').addEventListener('click', () => {
+    const pts = volPuntos();
+    if (volSel < 0 || volSel >= pts.length) { toast('Toca antes un punto de la curva'); return; }
+    pushHistory();
+    pts.splice(volSel, 1); volSel = -1;
+    if (!pts.length) audioTarget.volPoints = null;
+    updateVolUI(); scheduleSave(); haptic(10);
+  });
+
+  $('#vol-reset').addEventListener('click', () => {
+    if (!audioTarget || !audioTarget.volPoints) return;
+    pushHistory();
+    audioTarget.volPoints = null; volSel = -1;
+    updateVolUI(); scheduleSave(); haptic(10);
+    toast('Curva de volumen quitada');
+  });
+
+  $('#btn-crossfade').addEventListener('click', fundidoCruzado);
+  window.addEventListener('resize', () => {
+    if ($('#sheet-audio-clip').classList.contains('show')) drawVolCurve();
+  });
+}
+
+// Solapa esta música con la anterior y cruza los fundidos, para que una
+// entre justo mientras la otra se va.
+function fundidoCruzado() {
+  const c = audioTarget;
+  if (!c || c.type === 'video') { toast('Elige una música de la pista de audio'); return; }
+  const pista = project.tracks.audio;
+  const i = pista.findIndex(x => x.id === c.id);
+  if (i < 0) return;
+  // La anterior es la que termina más cerca por delante de esta.
+  let anterior = null;
+  for (const o of pista) {
+    if (o.id === c.id) continue;
+    const fin = o.start + (o.outPoint - o.inPoint);
+    if (fin <= c.start + 0.001 || (o.start < c.start && fin > c.start)) {
+      if (!anterior || fin > anterior.start + (anterior.outPoint - anterior.inPoint)) anterior = o;
+    }
+  }
+  if (!anterior) { toast('No hay otra música antes de esta con la que cruzar'); return; }
+  const durA = anterior.outPoint - anterior.inPoint;
+  const durB = c.outPoint - c.inPoint;
+  const cruce = Math.min(1.5, durA * 0.4, durB * 0.4);
+  if (cruce < 0.15) { toast('Las músicas son demasiado cortas para cruzarlas'); return; }
+  pushHistory();
+  // Adelanta esta para que pise el final de la anterior.
+  c.start = Math.max(0, anterior.start + durA - cruce);
+  anterior.fadeOut = cruce;
+  c.fadeIn = cruce;
+  $('#a-fi').value = c.fadeIn;
+  updateAudioOutputs();
+  refresh(); engine.applyGains(); timeline.select(c.id, 'audio');
+  haptic([12, 30, 12]);
+  toast(`Fundido cruzado de ${cruce.toFixed(1)}s con la música anterior`);
+}
+
 function updateDuckBtn() {
   const on = !!(audioTarget && audioTarget.duck);
   const btn = $('#btn-duck');
@@ -3340,7 +3557,7 @@ async function main() {
   injectSheetChrome();
   initTimeline(); bindGlobal(); bindToolbar(); bindAdjust(); bindSpeed();
   bindTransition(); bindRatio(); bindText(); bindExport(); bindSettings(); bindAudioClip();
-  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs(); bindTemplates(); bindAutocut();
+  bindGif(); bindPreviewGestures(); bindVoice(); bindColorCard(); bindCurves(); bindStabilize(); bindSubs(); bindTemplates(); bindAutocut(); bindVolCurve();
   bindPro(); bindTutorial(); refreshProUI();
   $('#btn-prate').addEventListener('click', cyclePreviewRate);
   await renderProjects();
